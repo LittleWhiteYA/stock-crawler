@@ -11,26 +11,12 @@ from dotenv import load_dotenv
 load_dotenv()
 
 MONGO_URL = os.environ.get("MONGO_URL")
-SINCE_DATE = os.environ.get("SINCE_DATE")
-UNTIL_DATE = os.environ.get("UNTIL_DATE")
 WANTGOO_MEMBER_TOKEN = os.environ.get("WANTGOO_MEMBER_TOKEN")
 COMPANY_CODES = os.environ.get("COMPANY_CODES")
 UPDATE_EXISTED_COMPANY = os.environ.get("UPDATE_EXISTED_COMPANY")
 
 mongo_client = MongoClient(MONGO_URL)
 db = mongo_client.get_default_database()
-
-if not SINCE_DATE:
-    raise ValueError(SINCE_DATE, "can not get SINCE_DATE")
-
-since_date = datetime.strptime(SINCE_DATE, "%Y-%m-%d")
-
-if UNTIL_DATE:
-    until_date = datetime.strptime(UNTIL_DATE, "%Y-%m-%d")
-    if until_date > datetime.now():
-        until_date = datetime.now()
-else:
-    until_date = datetime.now()
 
 if not WANTGOO_MEMBER_TOKEN:
     raise ValueError(WANTGOO_MEMBER_TOKEN, "WANTGOO_MEMBER_TOKEN is missing")
@@ -41,6 +27,30 @@ if not COMPANY_CODES:
     raise ValueError(COMPANY_CODES, "COMPANY_CODES is missing")
 
 company_codes = COMPANY_CODES.split(",")
+
+
+def get_date_range():
+
+    SINCE_DATE = os.environ.get('SINCE_DATE')
+    UNTIL_DATE = os.environ.get('UNTIL_DATE')
+
+    if SINCE_DATE:
+        since_date = datetime.strptime(SINCE_DATE, '%Y-%m-%d')
+    else:
+        # from the first weekday of this week
+        today = datetime.now()
+        since_date = today + timedelta(days=-today.weekday())
+
+    if UNTIL_DATE:
+        until_date = datetime.strptime(UNTIL_DATE, '%Y-%m-%d')
+    else:
+        until_date = datetime.now()
+
+    # check invalid
+    if until_date > datetime.now():
+        until_date = datetime.now()
+
+    return since_date, until_date
 
 
 def crawl_stock_date_chips(company_code, since_date, until_date):
@@ -109,29 +119,37 @@ def get_stock_chips(company_code, since_date, until_date):
         time.sleep(3)
 
 
-existed_company_codes = db.list_collection_names(
-    filter={"name": {"$regex": "^\\d\\d\\d\\d$"}}
-)
+def main():
 
-for company_code in company_codes:
-    print(f"since_date: {since_date}")
-    print(f"until_date: {until_date}")
-    print(f"company_code: {company_code}")
+    since_date, until_date = get_date_range()
 
-    if company_code in existed_company_codes:
-        print(f"company_code {company_code} collection already exists, skip")
-        continue
+    existed_company_codes = db.list_collection_names(
+        filter={"name": {"$regex": "^\\d\\d\\d\\d$"}}
+    )
 
-    get_stock_chips(company_code, since_date, until_date)
-
-if UPDATE_EXISTED_COMPANY:
-    for existed_code in existed_company_codes:
-        latest_data = db[existed_code].find_one({}, sort=[("sinceDate", -1)])
-        since_date = latest_data["sinceDate"]
+    for company_code in company_codes:
         print(f"since_date: {since_date}")
         print(f"until_date: {until_date}")
-        print(f"existed_company_code: {existed_code}")
+        print(f"company_code: {company_code}")
 
-        get_stock_chips(existed_code, since_date, until_date)
+        if company_code in existed_company_codes:
+            print(f"company_code {company_code} collection already exists, skip")
+            continue
 
-mongo_client.close()
+        get_stock_chips(company_code, since_date, until_date)
+
+    if UPDATE_EXISTED_COMPANY:
+        for existed_code in existed_company_codes:
+            latest_data = db[existed_code].find_one({}, sort=[("sinceDate", -1)])
+            since_date = latest_data["sinceDate"]
+            print(f"since_date: {since_date}")
+            print(f"until_date: {until_date}")
+            print(f"existed_company_code: {existed_code}")
+
+            get_stock_chips(existed_code, since_date, until_date)
+
+    mongo_client.close()
+
+
+if __name__ == '__main__':
+    main()
