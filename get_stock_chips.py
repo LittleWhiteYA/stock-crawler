@@ -20,13 +20,15 @@ db = mongo_client.get_default_database()
 
 if not WANTGOO_MEMBER_TOKEN:
     raise ValueError(WANTGOO_MEMBER_TOKEN, "WANTGOO_MEMBER_TOKEN is missing")
-
 cookie = f"member_token={WANTGOO_MEMBER_TOKEN}"
 
-if not COMPANY_CODES:
-    raise ValueError(COMPANY_CODES, "COMPANY_CODES is missing")
+if not COMPANY_CODES and not UPDATE_EXISTED_COMPANY:
+    raise ValueError(COMPANY_CODES, "COMPANY_CODES or UPDATE_EXISTED_COMPANY is missing")
 
-company_codes = COMPANY_CODES.split(",")
+session = requests.Session()
+adapter = HTTPAdapter(max_retries=5)
+session.mount("http://", adapter)
+session.mount("https://", adapter)
 
 
 def get_date_range():
@@ -73,10 +75,6 @@ def crawl_stock_date_chips(company_code, since_date, until_date):
         f"beginDate={since}"
     )
 
-    session = requests.Session()
-    adapter = HTTPAdapter(max_retries=5)
-    session.mount("http://", adapter)
-    session.mount("https://", adapter)
     res = session.get(
         url,
         headers={
@@ -131,21 +129,27 @@ def main():
     existed_company_codes = db.list_collection_names(
         filter={"name": {"$regex": "^company_\\d\\d\\d\\d$"}}
     )
+    existed_company_codes = [item.replace('company_', '') for item in existed_company_codes]
 
-    for company_code in company_codes:
-        print(f"since_date: {since_date}")
-        print(f"until_date: {until_date}")
-        print(f"company_code: {company_code}")
+    # crawl new
+    if COMPANY_CODES:
+        company_codes = COMPANY_CODES.split(",")
+        for company_code in company_codes:
+            print(f"since_date: {since_date}")
+            print(f"until_date: {until_date}")
+            print(f"company_code: {company_code}")
 
-        if f"company_{company_code}" in existed_company_codes:
-            print(f"company_code {company_code} collection already exists, skip")
-            continue
+            if company_code in existed_company_codes:
+                print(f"company_code {company_code} collection already exists, skip")
+                continue
 
-        get_stock_chips(company_code, since_date, until_date, date_interval)
+            get_stock_chips(company_code, since_date, until_date, date_interval)
 
+    # update origin
     if UPDATE_EXISTED_COMPANY:
         for existed_code in existed_company_codes:
-            latest_data = db[existed_code].find_one({}, sort=[("sinceDate", -1)])
+            col_name = f'company_{existed_code}'
+            latest_data = db[col_name].find_one({}, sort=[("sinceDate", -1)])
             since_date = latest_data["sinceDate"]
             print(f"since_date: {since_date}")
             print(f"until_date: {until_date}")
