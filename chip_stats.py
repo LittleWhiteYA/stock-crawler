@@ -14,7 +14,7 @@ TOTAL_THRESHOLD = os.environ.get("TOTAL_THRESHOLD")
 if not COMPANY_CODE:
     raise ValueError(COMPANY_CODE, "COMPANY_CODE is missing")
 
-company_code = COMPANY_CODE
+company_code = f"company_{COMPANY_CODE}"
 
 if WEEKLY_THRESHOLD:
     weekly_big_trader_threshold = int(WEEKLY_THRESHOLD)
@@ -75,7 +75,7 @@ big_trades_df = big_trades_df.sort_values(
     big_trades_df.last_valid_index(), axis="columns", ascending=False
 )
 
-print(big_trades_df.to_markdown())
+#  print(big_trades_df.to_markdown())
 
 # from matplotlib import font_manager
 # font_set = {f.name for f in font_manager.fontManager.ttflist}
@@ -88,6 +88,6 @@ ax.set_title(
 )
 ax.set_xlabel("date", fontsize=20)
 ax.set_ylabel("count", fontsize=20)
-ax.legend(loc="upper left")
+ax.legend(loc="upper left", prop={"size": 20})
 
 plt.show()
