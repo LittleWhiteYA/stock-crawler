@@ -14,6 +14,8 @@ const excludeBigCompanyCode = require('./excludeBigCompanyCode');
 
 const botToken = process.env.BOT_TOKEN;
 const userIds = process.env.USER_IDS.split(',');
+const privateUserId = process.env.PRIVATE_USER_ID;
+const holdStocks = process.env.STOCKS.split(',');
 const env = process.env.NODE_ENV;
 
 const bot = new TelegramClient({
@@ -31,6 +33,7 @@ const formatMessages = (messages) =>
 
     return {
       title,
+      companyCode: msg.company_code,
       option: {
         parse_mode: 'Markdown',
         reply_markup: {
@@ -118,11 +121,28 @@ const main = async () => {
               title: message.title,
               option: message.option,
             });
-            await delay(500);
+            await delay(100);
           }
         });
       },
       { concurrency: 1 }
+    );
+
+    await pMap(
+      messages.filter((msg) => holdStocks.includes(msg.companyCode)),
+      async (message) => {
+        if (env === 'production') {
+          await bot.sendMessage(privateUserId, message.title, message.option);
+          await delay(1000);
+        } else {
+          console.log(`send private message to user: ${privateUserId}`);
+          console.log({
+            title: message.title,
+            option: message.option,
+          });
+          await delay(500);
+        }
+      }
     );
   } else {
     await pMap(userIds, async (userId) => {
