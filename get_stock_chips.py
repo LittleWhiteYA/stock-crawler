@@ -4,7 +4,7 @@ import json
 import time
 from requests.adapters import HTTPAdapter
 from datetime import datetime, timedelta
-from dateutil.rrule import rrule, DAILY
+from dateutil.rrule import rrule, DAILY, WEEKLY, MO
 from pymongo import MongoClient
 from dotenv import load_dotenv
 
@@ -95,13 +95,18 @@ def crawl_stock_date_chips(company_code, since_date, until_date):
 
 def get_stock_chips(company_code, since_date, until_date, date_interval):
 
-    dates = [dt for dt in rrule(DAILY, dtstart=since_date, until=until_date)]
-    dates = dates[0:: date_interval]
+    if date_interval == 7:
+        dates = [dt for dt in rrule(WEEKLY, dtstart=since_date, until=until_date, byweekday=[MO])]
+    else:
+        dates = [dt for dt in rrule(DAILY, dtstart=since_date, until=until_date)]
 
     for date in dates:
 
         since = date
-        until = date + timedelta(days=date_interval - 1)
+        until = date
+        if date_interval == 7:
+            until += timedelta(days=4)
+
         print(f"date range: {since} ~ {until}")
 
         if until.date() >= datetime.now().date():
@@ -147,15 +152,15 @@ def main():
 
     # update origin
     if UPDATE_EXISTED_COMPANY:
-        for existed_code in existed_company_codes:
+        for existed_code in sorted(existed_company_codes):
             col_name = f'company_{existed_code}'
-            latest_data = db[col_name].find_one({}, sort=[("sinceDate", -1)])
-            since_date = latest_data["sinceDate"]
-            print(f"since_date: {since_date}")
+            latest_data = db[col_name].find_one({}, sort=[("untilDate", -1)])
+            last_until_date = latest_data["untilDate"]
+            print(f"last until_date: {last_until_date}")
             print(f"until_date: {until_date}")
             print(f"existed_company_code: {existed_code}")
 
-            get_stock_chips(existed_code, since_date, until_date, date_interval)
+            get_stock_chips(existed_code, last_until_date, until_date, date_interval)
 
     mongo_client.close()
 
