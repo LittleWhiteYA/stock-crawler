@@ -5,7 +5,6 @@ require('@babel/register')({ extensions: ['.js', '.ts'] });
 require('dotenv').config();
 
 const { TelegramClient } = require('messaging-api-telegram');
-const subDays = require('date-fns/subDays');
 const format = require('date-fns/format');
 const pMap = require('p-map');
 const delay = require('delay');
@@ -21,30 +20,8 @@ const bot = new TelegramClient({
   accessToken: botToken,
 });
 
-const main = async () => {
-  const db = await getDatabase();
-
-  const today = new Date();
-  const todayDate = new Date(
-    Date.UTC(today.getFullYear(), today.getMonth(), today.getDate())
-  );
-
-  const dailyMessages = await db
-    .collection('company_daily_messages')
-    .find({
-      // date: { $gte: new Date(2021, 0, 1), $lte: new Date(2021, 2, 1) },
-      date: { $gte: subDays(todayDate, 2) },
-      title: {
-        $regex:
-          '((?=.*處分)(?!.*存款)(?!.*理財).*|注意交易資訊標準|減資|股利|合併財報|財務報告|處置|出售)',
-      },
-      company_code: { $nin: excludeBigCompanyCode },
-      typek: { $ne: 'rotc' },
-    })
-    .sort({ date: -1, time: -1 })
-    .toArray();
-
-  const messages = dailyMessages.map((msg) => {
+const formatMessages = (messages) =>
+  messages.map((msg) => {
     const title =
       `date: ${format(msg.date, 'yyyy-MM-dd')} ${msg.time}\n` +
       `code: ${msg.company_code}\n` +
@@ -70,6 +47,63 @@ const main = async () => {
     };
   });
 
+const main = async () => {
+  const db = await getDatabase();
+
+  const today = new Date();
+  const todayDate = new Date(
+    Date.UTC(today.getFullYear(), today.getMonth(), today.getDate())
+  );
+
+  const baseFilter = {
+    // date: { $gte: new Date(2021, 0, 1), $lte: new Date(2021, 2, 1) },
+    date: { $gte: todayDate },
+    company_code: { $nin: excludeBigCompanyCode },
+    typek: { $ne: 'rotc' },
+  };
+
+  const sellMessages = await db
+    .collection('company_daily_messages')
+    .find({
+      ...baseFilter,
+      title: {
+        $regex: '((?=.*處分)(?!.*存款)(?!.*理財).*|處置|出售)',
+      },
+    })
+    .sort({ company_code: 1 })
+    .toArray();
+
+  const reportMessages = await db
+    .collection('company_daily_messages')
+    .find({
+      ...baseFilter,
+      title: {
+        $regex: '合併財報|財務報告|減資|股利',
+      },
+    })
+    .sort({ company_code: 1 })
+    .toArray();
+
+  const attentionMessages = await db
+    .collection('company_daily_messages')
+    .find({
+      ...baseFilter,
+      title: {
+        $regex: '注意交易資訊標準',
+      },
+    })
+    .sort({ company_code: 1 })
+    .toArray();
+
+  const messages = [
+    { title: '處分 or 處置 or 出售' },
+    ...formatMessages(sellMessages),
+    { title: '合併財報 or 財務報告 or 減資 or 股利' },
+    ...formatMessages(reportMessages),
+    { title: '注意交易資訊標準' },
+    ...formatMessages(attentionMessages),
+  ];
+
   if (messages.length > 0) {
     await pMap(
       messages,
@@ -84,6 +118,7 @@ const main = async () => {
               title: message.title,
               option: message.option,
             });
+            await delay(500);
           }
         });
       },
