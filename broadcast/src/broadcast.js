@@ -107,6 +107,9 @@ const main = async () => {
     ...formatMessages(attentionMessages),
   ];
 
+  console.log('broadcast will start at 5 secs');
+  await delay(5000);
+
   if (messages.length > 0) {
     await pMap(
       messages,
