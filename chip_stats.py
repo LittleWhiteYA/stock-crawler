@@ -12,19 +12,74 @@ WEEKLY_THRESHOLD = os.environ.get("WEEKLY_THRESHOLD")
 TOTAL_THRESHOLD = os.environ.get("TOTAL_THRESHOLD")
 
 if not COMPANY_CODE:
+    COMPANY_CODE = input("input company code: ")
+
+if not COMPANY_CODE:
     raise ValueError(COMPANY_CODE, "COMPANY_CODE is missing")
 
 company_code = f"company_{COMPANY_CODE}"
 
+company_default_threshold = [
+    {
+        "company_code": "company_1539",
+        "default_threshold": 100,
+    },
+    {
+        "company_code": "company_1786",
+        "default_threshold": 100,
+    },
+    {
+        "company_code": "company_2352",
+        "default_threshold": 5000,
+    },
+    {
+        "company_code": "company_2451",
+        "default_threshold": 1000,
+    },
+    {
+        "company_code": "company_4930",
+        "default_threshold": 400,
+    },
+    {
+        "company_code": "company_4994",
+        "default_threshold": 100,
+    },
+    {
+        "company_code": "company_5425",
+        "default_threshold": 900,
+    },
+    {
+        "company_code": "company_5490",
+        "default_threshold": 150,
+    },
+    {
+        "company_code": "company_8446",
+        "default_threshold": 200,
+    },
+    {
+        "company_code": "company_9924",
+        "default_threshold": 200,
+    },
+]
+
 if WEEKLY_THRESHOLD:
     weekly_big_trader_threshold = int(WEEKLY_THRESHOLD)
 else:
-    weekly_big_trader_threshold = 10
+    weekly_big_trader_threshold = 0
 
 if TOTAL_THRESHOLD:
     total_big_trader_threshold = int(TOTAL_THRESHOLD)
 else:
-    total_big_trader_threshold = 100
+    threshold = next(
+        (
+            config["default_threshold"]
+            for config in company_default_threshold
+            if config["company_code"] == company_code
+        ),
+        None,
+    )
+
+    total_big_trader_threshold = threshold if threshold else 100
 
 mongo_client = MongoClient(MONGO_URL)
 db = mongo_client.get_default_database()
@@ -80,14 +135,15 @@ big_trades_df = big_trades_df.sort_values(
 # from matplotlib import font_manager
 # font_set = {f.name for f in font_manager.fontManager.ttflist}
 plt.rcParams["font.sans-serif"] = "Noto Sans CJK JP"
+plt.rcParams["figure.dpi"] = 200
 
 ax = big_trades_df.plot(figsize=(20, 10), fontsize=15, style="o-", grid=True, legend=2)
 ax.set_title(
     f"{company_code} (threshold: {weekly_big_trader_threshold}, {total_big_trader_threshold})",
     fontsize=30,
 )
-ax.set_xlabel("date", fontsize=20)
-ax.set_ylabel("count", fontsize=20)
-ax.legend(loc="upper left", prop={"size": 20})
+ax.set_xlabel("date", fontsize=10)
+ax.set_ylabel("count", fontsize=10)
+ax.legend(loc="upper left", prop={"size": 10})
 
 plt.show()

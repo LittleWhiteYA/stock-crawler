@@ -25,6 +25,9 @@ cookie = f"member_token={WANTGOO_MEMBER_TOKEN}"
 if not COMPANY_CODES and not UPDATE_EXISTED_COMPANY:
     raise ValueError(COMPANY_CODES, "COMPANY_CODES or UPDATE_EXISTED_COMPANY is missing")
 
+if not COMPANY_CODES:
+    COMPANY_CODES = input("input company codes: ")
+
 session = requests.Session()
 adapter = HTTPAdapter(max_retries=5)
 session.mount("http://", adapter)
