@@ -7,7 +7,6 @@ from dotenv import load_dotenv
 load_dotenv()
 
 MONGO_URL = os.environ.get("MONGO_URL")
-COMPANY_CODE = os.environ.get("COMPANY_CODE")
 THRESHOLD = os.environ.get("THRESHOLD")
 
 company_default_threshold = [
@@ -57,34 +56,40 @@ company_default_threshold = [
     },
 ]
 
-if not COMPANY_CODE:
-    COMPANY_CODE = input("input company code: ")
-
-if not COMPANY_CODE:
-    raise ValueError(COMPANY_CODE, "COMPANY_CODE is missing")
-
-company_code = f"company_{COMPANY_CODE}"
-
-
-if THRESHOLD:
-    big_trader_threshold = int(THRESHOLD)
-else:
-    threshold = next(
-        (
-            config["default_threshold"]
-            for config in company_default_threshold
-            if config["company_code"] == company_code
-        ),
-        None,
-    )
-
-    big_trader_threshold = threshold if threshold else 100
 
 mongo_client = MongoClient(MONGO_URL)
 db = mongo_client.get_default_database()
 
 
-def main():
+def get_company_code():
+    company_code = input("input company code: ")
+
+    if not company_code:
+        raise ValueError(company_code, "company_code is missing")
+
+    company_code = f"company_{company_code}"
+    return company_code
+
+
+def get_threshold(company_code):
+    if THRESHOLD:
+        big_trader_threshold = int(THRESHOLD)
+    else:
+        threshold = next(
+            (
+                config["default_threshold"]
+                for config in company_default_threshold
+                if config["company_code"] == company_code
+            ),
+            None,
+        )
+
+        big_trader_threshold = threshold if threshold else 100
+
+    return big_trader_threshold
+
+
+def main(company_code, big_trader_threshold):
     weekly_trades = list(db[company_code].find({}))
 
     if not weekly_trades:
@@ -148,4 +153,7 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    while True:
+        company_code = get_company_code()
+        big_trader_threshold = get_threshold(company_code)
+        main(company_code, big_trader_threshold)
