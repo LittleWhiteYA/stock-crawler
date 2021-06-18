@@ -3,6 +3,7 @@ from pymongo import MongoClient
 import pandas as pd
 import matplotlib.pyplot as plt
 from dotenv import load_dotenv
+from datetime import datetime
 
 load_dotenv()
 
@@ -17,6 +18,10 @@ company_default_threshold = [
     {
         "company_code": "company_1786",
         "default_threshold": 100,
+    },
+    {
+        "company_code": "company_1810",
+        "default_threshold": 500,
     },
     {
         "company_code": "company_2065",
@@ -54,6 +59,10 @@ company_default_threshold = [
         "company_code": "company_9924",
         "default_threshold": 200,
     },
+    {
+        "company_code": "company_9958",
+        "default_threshold": 700,
+    },
 ]
 
 
@@ -63,6 +72,9 @@ db = mongo_client.get_default_database()
 
 def get_company_code():
     company_code = input("input company code: ")
+
+    if company_code == "all":
+        return "all"
 
     if not company_code:
         raise ValueError(company_code, "company_code is missing")
@@ -90,7 +102,9 @@ def get_threshold(company_code):
 
 
 def main(company_code, big_trader_threshold):
-    weekly_trades = list(db[company_code].find({}))
+    weekly_trades = list(
+        db[company_code].find({"sinceDate": {"$gte": datetime(2021, 1, 1)}})
+    )
 
     if not weekly_trades:
         raise ValueError(
@@ -114,7 +128,8 @@ def main(company_code, big_trader_threshold):
         )
 
     weekly_trades_df = pd.DataFrame(
-        weekly_trades_stats, index=map(lambda trade: trade["sinceDate"], weekly_trades)
+        weekly_trades_stats,
+        index=map(lambda trade: trade["sinceDate"].date(), weekly_trades),
     )
 
     # fill NaN to 0 and do cumsum
@@ -138,22 +153,40 @@ def main(company_code, big_trader_threshold):
     plt.rcParams["figure.dpi"] = 200
 
     ax = big_trades_df.plot(
-        figsize=(10, 5), fontsize=15, style="o-", grid=True, legend=2
+        figsize=(10, 5),
+        fontsize=15,
+        style="o-",
+        grid=True,
+        legend=2,
     )
+
     ax.set_title(
         f"{company_code} (threshold: {big_trader_threshold})",
         fontsize=30,
     )
     ax.set_xlabel("date", fontsize=10)
     ax.set_ylabel("count", fontsize=10)
+    plt.minorticks_on()
+    plt.xticks(rotation=25)
+
     ax.legend(loc="upper left", prop={"size": 15})
 
+    print(f"generate {company_code} png")
     #  plt.show()
     ax.figure.savefig(f"{company_code}.png")
 
 
 if __name__ == "__main__":
-    while True:
-        company_code = get_company_code()
-        big_trader_threshold = get_threshold(company_code)
-        main(company_code, big_trader_threshold)
+    company_code = get_company_code()
+
+    if company_code == "all":
+        for company in company_default_threshold:
+            company_code = company["company_code"]
+            big_trader_threshold = get_threshold(company_code)
+            main(company_code, big_trader_threshold)
+    else:
+        while True:
+            big_trader_threshold = get_threshold(company_code)
+            main(company_code, big_trader_threshold)
+
+            company_code = get_company_code()
