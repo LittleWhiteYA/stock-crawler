@@ -12,7 +12,7 @@ load_dotenv()
 
 MONGO_URL = os.environ.get("MONGO_URL")
 WANTGOO_MEMBER_TOKEN = os.environ.get("WANTGOO_MEMBER_TOKEN")
-COMPANY_CODES = os.environ.get("COMPANY_CODES")
+STOCK_IDS = os.environ.get("STOCK_IDS")
 UPDATE_EXISTED_COMPANY = os.environ.get("UPDATE_EXISTED_COMPANY")
 
 mongo_client = MongoClient(MONGO_URL)
@@ -22,13 +22,13 @@ if not WANTGOO_MEMBER_TOKEN:
     raise ValueError(WANTGOO_MEMBER_TOKEN, "WANTGOO_MEMBER_TOKEN is missing")
 cookie = f"member_token={WANTGOO_MEMBER_TOKEN}"
 
-if not COMPANY_CODES and not UPDATE_EXISTED_COMPANY:
+if not STOCK_IDS and not UPDATE_EXISTED_COMPANY:
     raise ValueError(
-        COMPANY_CODES, "COMPANY_CODES or UPDATE_EXISTED_COMPANY is missing"
+        STOCK_IDS, "STOCK_IDS or UPDATE_EXISTED_COMPANY is missing"
     )
 
-if not COMPANY_CODES:
-    COMPANY_CODES = input("input new company codes: ")
+if not STOCK_IDS:
+    STOCK_IDS = input("input new stock ids: ")
 
 session = requests.Session()
 adapter = HTTPAdapter(max_retries=5)
@@ -146,8 +146,8 @@ def main():
     existed_stock_ids = list(map(lambda stock: stock["stockId"], existed_stocks))
 
     # crawl new
-    if COMPANY_CODES:
-        stock_ids = COMPANY_CODES.split(",")
+    if STOCK_IDS:
+        stock_ids = STOCK_IDS.split(",")
         for stock_id in stock_ids:
             print(f"since_date: {since_date}")
             print(f"until_date: {until_date}")
