@@ -12,6 +12,10 @@ THRESHOLD = os.environ.get("THRESHOLD")
 
 company_default_threshold = [
     {
+        "company_code": "company_1301",
+        "default_threshold": 4000,
+    },
+    {
         "company_code": "company_1539",
         "default_threshold": 100,
     },
@@ -50,6 +54,10 @@ company_default_threshold = [
     {
         "company_code": "company_5490",
         "default_threshold": 150,
+    },
+    {
+        "company_code": "company_6505",
+        "default_threshold": 2000,
     },
     {
         "company_code": "company_8446",
@@ -173,7 +181,7 @@ def main(company_code, big_trader_threshold):
 
     print(f"generate {company_code} png")
     #  plt.show()
-    ax.figure.savefig(f"{company_code}.png")
+    ax.figure.savefig(f"png/{company_code}.png")
 
 
 if __name__ == "__main__":
