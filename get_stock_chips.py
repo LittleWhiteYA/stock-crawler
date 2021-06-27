@@ -23,10 +23,12 @@ if not WANTGOO_MEMBER_TOKEN:
 cookie = f"member_token={WANTGOO_MEMBER_TOKEN}"
 
 if not COMPANY_CODES and not UPDATE_EXISTED_COMPANY:
-    raise ValueError(COMPANY_CODES, "COMPANY_CODES or UPDATE_EXISTED_COMPANY is missing")
+    raise ValueError(
+        COMPANY_CODES, "COMPANY_CODES or UPDATE_EXISTED_COMPANY is missing"
+    )
 
 if not COMPANY_CODES:
-    COMPANY_CODES = input("input company codes: ")
+    COMPANY_CODES = input("input new company codes: ")
 
 session = requests.Session()
 adapter = HTTPAdapter(max_retries=5)
@@ -36,19 +38,19 @@ session.mount("https://", adapter)
 
 def get_date_range():
 
-    SINCE_DATE = os.environ.get('SINCE_DATE')
-    UNTIL_DATE = os.environ.get('UNTIL_DATE')
-    DATE_INTERVAL = os.environ.get('DATE_INTERVAL')
+    SINCE_DATE = os.environ.get("SINCE_DATE")
+    UNTIL_DATE = os.environ.get("UNTIL_DATE")
+    DATE_INTERVAL = os.environ.get("DATE_INTERVAL")
 
     if not DATE_INTERVAL:
         date_interval = 7
     else:
         date_interval = int(DATE_INTERVAL)
         if date_interval not in [1, 7]:
-            raise ValueError(date_interval, 'Invalid date_interval: 1|7')
+            raise ValueError(date_interval, "Invalid date_interval: 1|7")
 
     if SINCE_DATE:
-        since_date = datetime.strptime(SINCE_DATE, '%Y-%m-%d')
+        since_date = datetime.strptime(SINCE_DATE, "%Y-%m-%d")
     elif date_interval == 7:
         since_date = since_date + timedelta(days=-since_date.weekday(), weeks=1)
     else:  # from the first weekday of this week
@@ -56,7 +58,7 @@ def get_date_range():
         since_date = today + timedelta(days=-today.weekday())
 
     if UNTIL_DATE:
-        until_date = datetime.strptime(UNTIL_DATE, '%Y-%m-%d')
+        until_date = datetime.strptime(UNTIL_DATE, "%Y-%m-%d")
     else:
         until_date = datetime.now()
 
@@ -67,12 +69,12 @@ def get_date_range():
     return since_date, until_date, date_interval
 
 
-def crawl_stock_date_chips(company_code, since_date, until_date):
+def crawl_stock_date_chips(stock_id, since_date, until_date):
     since = since_date.strftime("%Y/%m/%d")
     until = until_date.strftime("%Y/%m/%d")
 
     url = (
-        f"https://www.wantgoo.com/stock/{company_code}/major-investors/branch-buysell-data?"
+        f"https://www.wantgoo.com/stock/{stock_id}/major-investors/branch-buysell-data?"
         "isOverBuy=true&"
         f"endDate={until}&"
         f"beginDate={since}"
@@ -96,10 +98,15 @@ def crawl_stock_date_chips(company_code, since_date, until_date):
     }
 
 
-def get_stock_chips(company_code, since_date, until_date, date_interval):
+def get_stock_chips(stock_id, since_date, until_date, date_interval):
 
     if date_interval == 7:
-        dates = [dt for dt in rrule(WEEKLY, dtstart=since_date, until=until_date, byweekday=[MO])]
+        dates = [
+            dt
+            for dt in rrule(
+                WEEKLY, dtstart=since_date, until=until_date, byweekday=[MO]
+            )
+        ]
     else:
         dates = [dt for dt in rrule(DAILY, dtstart=since_date, until=until_date)]
 
@@ -116,9 +123,9 @@ def get_stock_chips(company_code, since_date, until_date, date_interval):
             print(f"until date {until} is gte today, skip")
             break
 
-        chips = crawl_stock_date_chips(company_code, since, until)
+        chips = crawl_stock_date_chips(stock_id, since, until)
 
-        db[f"company_{company_code}"].update_one(
+        db[f"company_{stock_id}"].update_one(
             {
                 "sinceDate": chips["sinceDate"],
                 "untilDate": chips["untilDate"],
@@ -134,39 +141,44 @@ def main():
 
     since_date, until_date, date_interval = get_date_range()
 
-    existed_company_codes = db.list_collection_names(
-        filter={"name": {"$regex": "^company_\\d\\d\\d\\d$"}}
-    )
-    existed_company_codes = [item.replace('company_', '') for item in existed_company_codes]
+    existed_stocks = db["stocks"].find({"shouldSkip": False}, sort=[("stockId", 1)])
+
+    existed_stock_ids = list(map(lambda stock: stock["stockId"], existed_stocks))
 
     # crawl new
     if COMPANY_CODES:
-        company_codes = COMPANY_CODES.split(",")
-        for company_code in company_codes:
+        stock_ids = COMPANY_CODES.split(",")
+        for stock_id in stock_ids:
             print(f"since_date: {since_date}")
             print(f"until_date: {until_date}")
-            print(f"company_code: {company_code}")
+            print(f"stock_id: {stock_id}")
 
-            if company_code in existed_company_codes:
-                print(f"company_code {company_code} collection already exists, skip")
+            if stock_id in existed_stock_ids:
+                print(f"stock_id {stock_id} already exists, skip")
                 continue
 
-            get_stock_chips(company_code, since_date, until_date, date_interval)
+            db["stocks"].insert_one(
+                {
+                    "stockId": stock_id,
+                    "shouldSkip": False,
+                }
+            )
+            get_stock_chips(stock_id, since_date, until_date, date_interval)
 
     # update origin
     if UPDATE_EXISTED_COMPANY:
-        for existed_code in sorted(existed_company_codes):
-            col_name = f'company_{existed_code}'
+        for stock_id in existed_stock_ids:
+            col_name = f"company_{stock_id}"
             latest_data = db[col_name].find_one({}, sort=[("untilDate", -1)])
             last_until_date = latest_data["untilDate"]
             print(f"last until_date: {last_until_date}")
             print(f"until_date: {until_date}")
-            print(f"existed_company_code: {existed_code}")
+            print(f"existed stock id: {stock_id}")
 
-            get_stock_chips(existed_code, last_until_date, until_date, date_interval)
+            get_stock_chips(stock_id, last_until_date, until_date, date_interval)
 
     mongo_client.close()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
