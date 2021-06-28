@@ -108,16 +108,14 @@ def get_threshold(stock_id):
     return big_trader_threshold
 
 
-def main(stock_id, big_trader_threshold):
+def get_trade_dataframe(stock_id, big_trader_threshold):
     col_name = f"company_{stock_id}"
     weekly_trades = list(
         db[col_name].find({"sinceDate": {"$gte": datetime(2021, 1, 1)}})
     )
 
     if not weekly_trades:
-        raise ValueError(
-            weekly_trades, f"stock id {stock_id} may not be crawled yet"
-        )
+        raise ValueError(weekly_trades, f"stock id {stock_id} may not be crawled yet")
 
     weekly_trades_stats = []
 
@@ -155,12 +153,33 @@ def main(stock_id, big_trader_threshold):
 
     #  print(big_trades_df.to_markdown())
 
+    return big_trades_df
+
+
+def get_price_dataframe(stock_id):
+    prices = list(
+        db.dailyPrices.find({"stockId": stock_id}, {"_id": 0, "close": 1, "date": 1})
+    )
+
+    prices_df = pd.DataFrame(
+        map(lambda e: {"price": e["close"]}, prices),
+        index=map(lambda p: p["date"].date(), prices),
+    )
+
+    return prices_df
+
+
+def main(stock_id, big_trader_threshold):
+
+    trade_df = get_trade_dataframe(stock_id, big_trader_threshold)
+    prices_df = get_price_dataframe(stock_id)
+
     # from matplotlib import font_manager
     # font_set = {f.name for f in font_manager.fontManager.ttflist}
     plt.rcParams["font.sans-serif"] = "Noto Sans CJK JP"
     plt.rcParams["figure.dpi"] = 200
 
-    ax = big_trades_df.plot(
+    ax = trade_df.plot(
         figsize=(10, 5),
         fontsize=15,
         style="o-",
@@ -174,10 +193,21 @@ def main(stock_id, big_trader_threshold):
     )
     ax.set_xlabel("date", fontsize=10)
     ax.set_ylabel("count", fontsize=10)
+    ax.legend(loc="upper left", prop={"size": 15})
+
+    plt.minorticks_on()
+
+    right_ax = ax.twinx()
+    right_ax.plot(
+        prices_df["price"],
+        color="black",
+    )
+    right_ax.tick_params(axis='y', labelsize=15)
+    right_ax.set_ylabel("price", fontsize=10)
+    #  right_ax.tick_params(axis='y', which='minor', bottom=False)
+
     plt.minorticks_on()
     plt.xticks(rotation=25)
-
-    ax.legend(loc="upper left", prop={"size": 15})
 
     print(f"generate {stock_id} png")
     #  plt.show()
