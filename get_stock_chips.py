@@ -2,6 +2,7 @@ import os
 import requests
 import json
 import time
+import pytz
 from requests.adapters import HTTPAdapter
 from datetime import datetime, timedelta
 from dateutil.rrule import rrule, DAILY, WEEKLY, MO
@@ -14,18 +15,18 @@ MONGO_URL = os.environ.get("MONGO_URL")
 WANTGOO_MEMBER_TOKEN = os.environ.get("WANTGOO_MEMBER_TOKEN")
 STOCK_IDS = os.environ.get("STOCK_IDS")
 UPDATE_EXISTED_COMPANY = os.environ.get("UPDATE_EXISTED_COMPANY")
+TPE_TIMEZONE = pytz.timezone("Asia/Taipei")
 
-mongo_client = MongoClient(MONGO_URL)
+mongo_client = MongoClient(MONGO_URL, tz_aware=True)
 db = mongo_client.get_default_database()
+chips_col_name = "chips"
 
 if not WANTGOO_MEMBER_TOKEN:
     raise ValueError(WANTGOO_MEMBER_TOKEN, "WANTGOO_MEMBER_TOKEN is missing")
 cookie = f"member_token={WANTGOO_MEMBER_TOKEN}"
 
 if not STOCK_IDS and not UPDATE_EXISTED_COMPANY:
-    raise ValueError(
-        STOCK_IDS, "STOCK_IDS or UPDATE_EXISTED_COMPANY is missing"
-    )
+    raise ValueError(STOCK_IDS, "STOCK_IDS or UPDATE_EXISTED_COMPANY is missing")
 
 if not STOCK_IDS:
     STOCK_IDS = input("input new stock ids: ")
@@ -66,7 +67,11 @@ def get_date_range():
     if until_date > datetime.now():
         until_date = datetime.now()
 
-    return since_date, until_date, date_interval
+    return (
+        since_date.astimezone(tz=TPE_TIMEZONE),
+        until_date.astimezone(tz=TPE_TIMEZONE),
+        date_interval,
+    )
 
 
 def crawl_stock_date_chips(stock_id, since_date, until_date):
@@ -91,20 +96,18 @@ def crawl_stock_date_chips(stock_id, since_date, until_date):
 
     res = json.loads(res.text)
 
-    return {
-        "sinceDate": since_date,
-        "untilDate": until_date,
-        "data": res["data"],
-    }
+    return res["data"]
 
 
 def get_stock_chips(stock_id, since_date, until_date, date_interval):
-
     if date_interval == 7:
         dates = [
             dt
             for dt in rrule(
-                WEEKLY, dtstart=since_date, until=until_date, byweekday=[MO]
+                WEEKLY,
+                dtstart=since_date,
+                until=until_date,
+                byweekday=[MO],
             )
         ]
     else:
@@ -125,16 +128,24 @@ def get_stock_chips(stock_id, since_date, until_date, date_interval):
 
         chips = crawl_stock_date_chips(stock_id, since, until)
 
-        db[f"company_{stock_id}"].update_one(
+        doc = {
+            "stockId": stock_id,
+            "sinceDate": since,
+            "untilDate": until,
+        }
+
+        db[chips_col_name].update_one(
+            doc,
             {
-                "sinceDate": chips["sinceDate"],
-                "untilDate": chips["untilDate"],
+                "$setOnInsert": {
+                    **doc,
+                    "data": chips,
+                }
             },
-            {"$setOnInsert": chips},
             upsert=True,
         )
 
-        time.sleep(3)
+        time.sleep(1)
 
 
 def main():
@@ -168,10 +179,15 @@ def main():
     # update origin
     if UPDATE_EXISTED_COMPANY:
         for stock_id in existed_stock_ids:
-            col_name = f"company_{stock_id}"
-            latest_data = db[col_name].find_one({}, sort=[("untilDate", -1)])
-            last_until_date = latest_data["untilDate"]
-            print(f"last until_date: {last_until_date}")
+            latest_data = db[chips_col_name].find_one(
+                {"stockId": stock_id}, sort=[("untilDate", -1)]
+            )
+            last_until_date = (
+                latest_data["untilDate"].astimezone(tz=TPE_TIMEZONE)
+                if latest_data
+                else since_date
+            )
+            print(f"since_date: {last_until_date}")
             print(f"until_date: {until_date}")
             print(f"existed stock id: {stock_id}")
 

@@ -74,7 +74,7 @@ stock_default_threshold = [
 ]
 
 
-mongo_client = MongoClient(MONGO_URL)
+mongo_client = MongoClient(MONGO_URL, tz_aware=True)
 db = mongo_client.get_default_database()
 
 
@@ -109,9 +109,10 @@ def get_threshold(stock_id):
 
 
 def get_trade_dataframe(stock_id, big_trader_threshold):
-    col_name = f"company_{stock_id}"
     weekly_trades = list(
-        db[col_name].find({"untilDate": {"$gte": datetime(2021, 1, 1)}})
+        db["chips"].find(
+            {"stockId": stock_id, "untilDate": {"$gte": datetime(2021, 1, 1)}}
+        )
     )
 
     if not weekly_trades:
@@ -204,7 +205,7 @@ def main(stock_id, big_trader_threshold):
         prices_df["price"],
         color="black",
     )
-    right_ax.tick_params(axis='y', labelsize=15)
+    right_ax.tick_params(axis="y", labelsize=15)
     right_ax.set_ylabel("price", fontsize=10)
     #  right_ax.tick_params(axis='y', which='minor', bottom=False)
 
