@@ -111,7 +111,7 @@ def get_threshold(stock_id):
 def get_trade_dataframe(stock_id, big_trader_threshold):
     col_name = f"company_{stock_id}"
     weekly_trades = list(
-        db[col_name].find({"sinceDate": {"$gte": datetime(2021, 1, 1)}})
+        db[col_name].find({"untilDate": {"$gte": datetime(2021, 1, 1)}})
     )
 
     if not weekly_trades:
@@ -135,7 +135,7 @@ def get_trade_dataframe(stock_id, big_trader_threshold):
 
     weekly_trades_df = pd.DataFrame(
         weekly_trades_stats,
-        index=map(lambda trade: trade["sinceDate"].date(), weekly_trades),
+        index=map(lambda trade: trade["untilDate"].date(), weekly_trades),
     )
 
     # fill NaN to 0 and do cumsum
@@ -165,6 +165,8 @@ def get_price_dataframe(stock_id):
         map(lambda e: {"price": e["close"]}, prices),
         index=map(lambda p: p["date"].date(), prices),
     )
+
+    #  print(prices_df.to_markdown())
 
     return prices_df
 
@@ -207,7 +209,6 @@ def main(stock_id, big_trader_threshold):
     #  right_ax.tick_params(axis='y', which='minor', bottom=False)
 
     plt.minorticks_on()
-    plt.xticks(rotation=25)
 
     print(f"generate {stock_id} png")
     #  plt.show()
