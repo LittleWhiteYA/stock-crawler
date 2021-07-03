@@ -8,70 +8,6 @@ from datetime import datetime
 load_dotenv()
 
 MONGO_URL = os.environ.get("MONGO_URL")
-THRESHOLD = os.environ.get("THRESHOLD")
-
-stock_default_threshold = [
-    {
-        "stock_id": "1301",
-        "default_threshold": 4000,
-    },
-    {
-        "stock_id": "1539",
-        "default_threshold": 100,
-    },
-    {
-        "stock_id": "1786",
-        "default_threshold": 100,
-    },
-    {
-        "stock_id": "1810",
-        "default_threshold": 500,
-    },
-    {
-        "stock_id": "2065",
-        "default_threshold": 150,
-    },
-    {
-        "stock_id": "2352",
-        "default_threshold": 5000,
-    },
-    {
-        "stock_id": "2451",
-        "default_threshold": 1000,
-    },
-    {
-        "stock_id": "4930",
-        "default_threshold": 400,
-    },
-    {
-        "stock_id": "4994",
-        "default_threshold": 100,
-    },
-    {
-        "stock_id": "5425",
-        "default_threshold": 900,
-    },
-    {
-        "stock_id": "5490",
-        "default_threshold": 150,
-    },
-    {
-        "stock_id": "6505",
-        "default_threshold": 2000,
-    },
-    {
-        "stock_id": "8446",
-        "default_threshold": 200,
-    },
-    {
-        "stock_id": "9924",
-        "default_threshold": 200,
-    },
-    {
-        "stock_id": "9958",
-        "default_threshold": 700,
-    },
-]
 
 
 mongo_client = MongoClient(MONGO_URL, tz_aware=True)
@@ -79,7 +15,7 @@ db = mongo_client.get_default_database()
 
 
 def get_stock_id():
-    stock_id = input("input stock id: ")
+    stock_id = input("input stock id or 'all': ")
 
     if not stock_id:
         raise ValueError(stock_id, "stock_id is missing")
@@ -91,19 +27,13 @@ def get_stock_id():
 
 
 def get_threshold(stock_id):
-    if THRESHOLD:
-        big_trader_threshold = int(THRESHOLD)
-    else:
-        threshold = next(
-            (
-                config["default_threshold"]
-                for config in stock_default_threshold
-                if config["stock_id"] == stock_id
-            ),
-            None,
-        )
+    stock = db["stocks"].find_one({"stockId": stock_id})
 
-        big_trader_threshold = threshold if threshold else 100
+    default_threshold = 100
+
+    big_trader_threshold = (
+        stock["threshold"] if "threshold" in stock else default_threshold
+    )
 
     return big_trader_threshold
 
@@ -187,7 +117,6 @@ def main(stock_id, big_trader_threshold):
         fontsize=15,
         style="o-",
         grid=True,
-        legend=2,
     )
 
     ax.set_title(
@@ -196,7 +125,7 @@ def main(stock_id, big_trader_threshold):
     )
     ax.set_xlabel("date", fontsize=10)
     ax.set_ylabel("count", fontsize=10)
-    ax.legend(loc="upper left", prop={"size": 15})
+    ax.legend(loc="upper left", prop={"size": 12}, bbox_to_anchor=(1.05, 1))
 
     plt.minorticks_on()
 
@@ -207,13 +136,12 @@ def main(stock_id, big_trader_threshold):
     )
     right_ax.tick_params(axis="y", labelsize=15)
     right_ax.set_ylabel("price", fontsize=10)
-    #  right_ax.tick_params(axis='y', which='minor', bottom=False)
 
     plt.minorticks_on()
 
     print(f"generate {stock_id} png")
     #  plt.show()
-    ax.figure.savefig(f"png/{stock_id}.png")
+    ax.figure.savefig(f"png/{stock_id}.png", bbox_inches="tight")
 
 
 if __name__ == "__main__":
