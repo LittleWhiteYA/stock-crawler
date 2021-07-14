@@ -106,7 +106,6 @@ def get_stock_chips(stock_id, since_date, until_date, date_interval):
         dates = [dt for dt in rrule(DAILY, dtstart=since_date, until=until_date)]
 
     for date in dates:
-
         since = date
         until = date
         if date_interval == 7:
@@ -138,33 +137,3 @@ def get_stock_chips(stock_id, since_date, until_date, date_interval):
         )
 
         time.sleep(1)
-
-
-def main():
-
-    since_date, until_date, date_interval = get_date_range()
-
-    existed_stocks = db["stocks"].find({"shouldSkip": False}, sort=[("stockId", 1)])
-
-    existed_stock_ids = list(map(lambda stock: stock["stockId"], existed_stocks))
-
-    for stock_id in existed_stock_ids:
-        latest_data = db[chips_col_name].find_one(
-            {"stockId": stock_id}, sort=[("untilDate", -1)]
-        )
-        last_until_date = (
-            latest_data["untilDate"].astimezone(tz=TPE_TIMEZONE)
-            if latest_data
-            else since_date
-        )
-        print(f"since_date: {last_until_date}")
-        print(f"until_date: {until_date}")
-        print(f"existed stock id: {stock_id}")
-
-        get_stock_chips(stock_id, last_until_date, until_date, date_interval)
-
-    mongo_client.close()
-
-
-if __name__ == "__main__":
-    main()
