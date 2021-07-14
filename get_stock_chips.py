@@ -13,8 +13,6 @@ load_dotenv()
 
 MONGO_URL = os.environ.get("MONGO_URL")
 WANTGOO_MEMBER_TOKEN = os.environ.get("WANTGOO_MEMBER_TOKEN")
-STOCK_IDS = os.environ.get("STOCK_IDS")
-UPDATE_EXISTED_COMPANY = os.environ.get("UPDATE_EXISTED_COMPANY")
 TPE_TIMEZONE = pytz.timezone("Asia/Taipei")
 
 mongo_client = MongoClient(MONGO_URL, tz_aware=True)
@@ -24,12 +22,6 @@ chips_col_name = "chips"
 if not WANTGOO_MEMBER_TOKEN:
     raise ValueError(WANTGOO_MEMBER_TOKEN, "WANTGOO_MEMBER_TOKEN is missing")
 cookie = f"member_token={WANTGOO_MEMBER_TOKEN}"
-
-if not STOCK_IDS and not UPDATE_EXISTED_COMPANY:
-    raise ValueError(STOCK_IDS, "STOCK_IDS or UPDATE_EXISTED_COMPANY is missing")
-
-if not STOCK_IDS:
-    STOCK_IDS = input("input new stock ids: ")
 
 session = requests.Session()
 adapter = HTTPAdapter(max_retries=5)
@@ -156,42 +148,20 @@ def main():
 
     existed_stock_ids = list(map(lambda stock: stock["stockId"], existed_stocks))
 
-    # crawl new
-    if STOCK_IDS:
-        stock_ids = STOCK_IDS.split(",")
-        for stock_id in stock_ids:
-            print(f"since_date: {since_date}")
-            print(f"until_date: {until_date}")
-            print(f"stock_id: {stock_id}")
+    for stock_id in existed_stock_ids:
+        latest_data = db[chips_col_name].find_one(
+            {"stockId": stock_id}, sort=[("untilDate", -1)]
+        )
+        last_until_date = (
+            latest_data["untilDate"].astimezone(tz=TPE_TIMEZONE)
+            if latest_data
+            else since_date
+        )
+        print(f"since_date: {last_until_date}")
+        print(f"until_date: {until_date}")
+        print(f"existed stock id: {stock_id}")
 
-            if stock_id in existed_stock_ids:
-                print(f"stock_id {stock_id} already exists, skip")
-                continue
-
-            db["stocks"].insert_one(
-                {
-                    "stockId": stock_id,
-                    "shouldSkip": False,
-                }
-            )
-            get_stock_chips(stock_id, since_date, until_date, date_interval)
-
-    # update origin
-    if UPDATE_EXISTED_COMPANY:
-        for stock_id in existed_stock_ids:
-            latest_data = db[chips_col_name].find_one(
-                {"stockId": stock_id}, sort=[("untilDate", -1)]
-            )
-            last_until_date = (
-                latest_data["untilDate"].astimezone(tz=TPE_TIMEZONE)
-                if latest_data
-                else since_date
-            )
-            print(f"since_date: {last_until_date}")
-            print(f"until_date: {until_date}")
-            print(f"existed stock id: {stock_id}")
-
-            get_stock_chips(stock_id, last_until_date, until_date, date_interval)
+        get_stock_chips(stock_id, last_until_date, until_date, date_interval)
 
     mongo_client.close()
 

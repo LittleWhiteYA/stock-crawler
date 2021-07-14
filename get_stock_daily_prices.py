@@ -13,12 +13,6 @@ TPE_TIMEZONE = pytz.timezone("Asia/Taipei")
 load_dotenv()
 
 MONGO_URL = os.environ.get("MONGO_URL")
-STOCK_IDS = os.environ.get("STOCK_IDS")
-UPDATE_EXISTED_COMPANY = os.environ.get("UPDATE_EXISTED_COMPANY")
-
-#  if not STOCK_IDS:
-#      STOCK_IDS = input("input new stock ids or empty: ")
-
 
 mongo_client = MongoClient(MONGO_URL, tz_aware=True)
 db = mongo_client.get_default_database()
@@ -85,42 +79,22 @@ def main():
     existed_stocks = db["stocks"].find({"shouldSkip": False}, sort=[("stockId", 1)])
     existed_stock_ids = list(map(lambda stock: stock["stockId"], existed_stocks))
 
-    # crawl new
-    if STOCK_IDS:
-        stock_ids = STOCK_IDS.split(",")
-        for stock_id in stock_ids:
-            print(f"since_date: {since_date}")
-            print(f"stock_id: {stock_id}")
+    for stock_id in existed_stock_ids:
+        latest_data = db[prices_col_name].find_one(
+            {"stockId": stock_id}, sort=[("date", -1)]
+        )
 
-            if stock_id in existed_stock_ids:
-                print(f"stock_id {stock_id} already exists, skip")
-                continue
+        last_until_date = (
+            latest_data["date"].astimezone(tz=TPE_TIMEZONE)
+            if latest_data
+            else since_date
+        )
+        print(f"last until date: {last_until_date}")
+        print(f"existed stock id: {stock_id}")
 
-            get_stock_prices(stock_id, since_date)
-            db["stocks"].insert_one(
-                {
-                    "stockId": stock_id,
-                    "shouldSkip": False,
-                }
-            )
+        get_stock_prices(stock_id, last_until_date)
 
-    if UPDATE_EXISTED_COMPANY:
-        for stock_id in existed_stock_ids:
-            latest_data = db[prices_col_name].find_one(
-                {"stockId": stock_id}, sort=[("date", -1)]
-            )
-
-            last_until_date = (
-                latest_data["date"].astimezone(tz=TPE_TIMEZONE)
-                if latest_data
-                else since_date
-            )
-            print(f"last until date: {last_until_date}")
-            print(f"existed stock id: {stock_id}")
-
-            get_stock_prices(stock_id, last_until_date)
-
-            time.sleep(1)
+        time.sleep(1)
 
     mongo_client.close()
 

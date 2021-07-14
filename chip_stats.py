@@ -4,10 +4,12 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from dotenv import load_dotenv
 from datetime import datetime
+import pytz
 
 load_dotenv()
 
 MONGO_URL = os.environ.get("MONGO_URL")
+TPE_TIMEZONE = pytz.timezone("Asia/Taipei")
 
 
 mongo_client = MongoClient(MONGO_URL, tz_aware=True)
@@ -94,7 +96,7 @@ def get_price_dataframe(stock_id):
 
     prices_df = pd.DataFrame(
         map(lambda e: {"price": e["close"]}, prices),
-        index=map(lambda p: p["date"].date(), prices),
+        index=map(lambda p: p["date"].astimezone(TPE_TIMEZONE).date(), prices),
     )
 
     #  print(prices_df.to_markdown())
@@ -106,6 +108,7 @@ def main(stock_id, big_trader_threshold):
 
     trade_df = get_trade_dataframe(stock_id, big_trader_threshold)
     prices_df = get_price_dataframe(stock_id)
+    last_day = prices_df.index[-1]
 
     # from matplotlib import font_manager
     # font_set = {f.name for f in font_manager.fontManager.ttflist}
@@ -120,7 +123,7 @@ def main(stock_id, big_trader_threshold):
     )
 
     ax.set_title(
-        f"{stock_id} (threshold: {big_trader_threshold})",
+        f"{stock_id} (TH: {big_trader_threshold}), {last_day}",
         fontsize=30,
     )
     ax.set_xlabel("date", fontsize=10)
