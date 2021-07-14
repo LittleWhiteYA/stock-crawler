@@ -5,7 +5,7 @@ import time
 import pytz
 from requests.adapters import HTTPAdapter
 from datetime import datetime, timedelta
-from dateutil.rrule import rrule, DAILY, WEEKLY, MO
+from dateutil.rrule import rrule, WEEKLY, MO
 from pymongo import MongoClient
 from dotenv import load_dotenv
 
@@ -29,23 +29,9 @@ session.mount("http://", adapter)
 session.mount("https://", adapter)
 
 
-def get_date_range():
-
-    SINCE_DATE = os.environ.get("SINCE_DATE")
-    UNTIL_DATE = os.environ.get("UNTIL_DATE")
-    DATE_INTERVAL = os.environ.get("DATE_INTERVAL")
-
-    if not DATE_INTERVAL:
-        date_interval = 7
-    else:
-        date_interval = int(DATE_INTERVAL)
-        if date_interval not in [1, 7]:
-            raise ValueError(date_interval, "Invalid date_interval: 1|7")
-
+def get_date_range(SINCE_DATE, UNTIL_DATE):
     if SINCE_DATE:
         since_date = datetime.strptime(SINCE_DATE, "%Y-%m-%d")
-    elif date_interval == 7:
-        since_date = since_date + timedelta(days=-since_date.weekday(), weeks=1)
     else:  # from the first weekday of this week
         today = datetime.now()
         since_date = today + timedelta(days=-today.weekday())
@@ -62,7 +48,6 @@ def get_date_range():
     return (
         since_date.astimezone(tz=TPE_TIMEZONE),
         until_date.astimezone(tz=TPE_TIMEZONE),
-        date_interval,
     )
 
 
@@ -91,25 +76,20 @@ def crawl_stock_date_chips(stock_id, since_date, until_date):
     return res["data"]
 
 
-def get_stock_chips(stock_id, since_date, until_date, date_interval):
-    if date_interval == 7:
-        dates = [
-            dt
-            for dt in rrule(
-                WEEKLY,
-                dtstart=since_date,
-                until=until_date,
-                byweekday=[MO],
-            )
-        ]
-    else:
-        dates = [dt for dt in rrule(DAILY, dtstart=since_date, until=until_date)]
+def get_stock_chips(stock_id, since_date, until_date):
+    dates = [
+        dt
+        for dt in rrule(
+            WEEKLY,
+            dtstart=since_date,
+            until=until_date,
+            byweekday=[MO],
+        )
+    ]
 
     for date in dates:
         since = date
-        until = date
-        if date_interval == 7:
-            until += timedelta(days=4)
+        until = date + timedelta(days=4)
 
         print(f"date range: {since} ~ {until}")
 
