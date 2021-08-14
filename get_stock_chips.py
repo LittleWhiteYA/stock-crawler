@@ -13,6 +13,8 @@ load_dotenv()
 
 MONGO_URL = os.environ.get("MONGO_URL")
 WANTGOO_MEMBER_TOKEN = os.environ.get("WANTGOO_MEMBER_TOKEN")
+WANTGOO_BID = "5DD69088-D9FD-4DB0-992D-CB498769CB01"
+WANTGOO_CLIENT_SIGNATURE = "5d487974b24e2bef1cdf566acbefa111c24dc9f4bff7f3d33e70fd6076644186"
 TPE_TIMEZONE = pytz.timezone("Asia/Taipei")
 
 mongo_client = MongoClient(MONGO_URL, tz_aware=True)
@@ -21,7 +23,6 @@ chips_col_name = "chips"
 
 if not WANTGOO_MEMBER_TOKEN:
     raise ValueError(WANTGOO_MEMBER_TOKEN, "WANTGOO_MEMBER_TOKEN is missing")
-cookie = f"member_token={WANTGOO_MEMBER_TOKEN}"
 
 session = requests.Session()
 adapter = HTTPAdapter(max_retries=5)
@@ -55,19 +56,23 @@ def crawl_stock_date_chips(stock_id, since_date, until_date):
     since = since_date.strftime("%Y/%m/%d")
     until = until_date.strftime("%Y/%m/%d")
 
-    url = (
-        f"https://www.wantgoo.com/stock/{stock_id}/major-investors/branch-buysell-data?"
-        "isOverBuy=true&"
-        f"endDate={until}&"
-        f"beginDate={since}"
-    )
+    url = f"https://www.wantgoo.com/stock/{stock_id}/major-investors/branch-buysell-data"
 
     res = session.get(
         url,
+        params={
+            "isOverBuy": "true",
+            "beginDate": since,
+            "endDate": until,
+        },
         headers={
-            "user-agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36"
-            "(KHTML, likeGecko) Chrome/90.0.1234.56 Safari/537.36",
-            "cookie": cookie,
+            "user-agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/92.0.4515.131 Safari/537.36",
+        },
+        cookies={
+            "member_token": WANTGOO_MEMBER_TOKEN,
+            "BID": WANTGOO_BID,
+            "client_signature": WANTGOO_CLIENT_SIGNATURE,
         },
     )
 
