@@ -1,13 +1,18 @@
+import os
 import requests
 import json
 import pytz
 from requests.adapters import HTTPAdapter
 from datetime import datetime
+from dotenv import load_dotenv
+
+load_dotenv()
+
+WANTGOO_BID = os.environ.get("WANTGOO_BID")
+WANTGOO_CLIENT_SIGNATURE = os.environ.get("WANTGOO_CLIENT_SIGNATURE")
+
 
 TPE_TIMEZONE = pytz.timezone("Asia/Taipei")
-WANTGOO_BID = "5DD69088-D9FD-4DB0-992D-CB498769CB01"
-WANTGOO_CLIENT_SIGNATURE = "5d487974b24e2bef1cdf566acbefa111c24dc9f4bff7f3d33e70fd6076644186"
-
 session = requests.Session()
 adapter = HTTPAdapter(max_retries=5)
 session.mount("http://", adapter)
@@ -26,7 +31,7 @@ def crawl_stock_daily_prices(stock_id, since_date):
         },
         headers={
             "user-agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
-            "(KHTML, like Gecko) Chrome/92.0.4515.131 Safari/537.36",
+            "(KHTML, like Gecko) Chrome/92.0.4515.159 Safari/537.36",
         },
         cookies={
             "BID": WANTGOO_BID,

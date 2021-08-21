@@ -13,8 +13,8 @@ load_dotenv()
 
 MONGO_URL = os.environ.get("MONGO_URL")
 WANTGOO_MEMBER_TOKEN = os.environ.get("WANTGOO_MEMBER_TOKEN")
-WANTGOO_BID = "5DD69088-D9FD-4DB0-992D-CB498769CB01"
-WANTGOO_CLIENT_SIGNATURE = "5d487974b24e2bef1cdf566acbefa111c24dc9f4bff7f3d33e70fd6076644186"
+WANTGOO_BID = os.environ.get("WANTGOO_BID")
+WANTGOO_CLIENT_SIGNATURE = os.environ.get("WANTGOO_CLIENT_SIGNATURE")
 TPE_TIMEZONE = pytz.timezone("Asia/Taipei")
 
 mongo_client = MongoClient(MONGO_URL, tz_aware=True)
@@ -67,7 +67,7 @@ def crawl_stock_date_chips(stock_id, since_date, until_date):
         },
         headers={
             "user-agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
-            "(KHTML, like Gecko) Chrome/92.0.4515.131 Safari/537.36",
+            "(KHTML, like Gecko) Chrome/92.0.4515.159 Safari/537.36",
         },
         cookies={
             "member_token": WANTGOO_MEMBER_TOKEN,
