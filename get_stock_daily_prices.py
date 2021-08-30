@@ -2,7 +2,6 @@ import os
 import requests
 import json
 import pytz
-from requests.adapters import HTTPAdapter
 from datetime import datetime
 from dotenv import load_dotenv
 
@@ -13,10 +12,6 @@ WANTGOO_CLIENT_SIGNATURE = os.environ.get("WANTGOO_CLIENT_SIGNATURE")
 
 
 TPE_TIMEZONE = pytz.timezone("Asia/Taipei")
-session = requests.Session()
-adapter = HTTPAdapter(max_retries=5)
-session.mount("http://", adapter)
-session.mount("https://", adapter)
 
 
 def crawl_stock_daily_prices(stock_id, since_date):
@@ -24,7 +19,7 @@ def crawl_stock_daily_prices(stock_id, since_date):
 
     url = f"https://www.wantgoo.com/investrue/{stock_id}/daily-candlesticks"
 
-    res = session.get(
+    res = requests.get(
         url,
         params={
             "after": since_date_secs,

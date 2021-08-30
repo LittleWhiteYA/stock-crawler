@@ -3,7 +3,6 @@ import requests
 import json
 import time
 import pytz
-from requests.adapters import HTTPAdapter
 from datetime import datetime, timedelta
 from dateutil.rrule import rrule, WEEKLY, MO
 from pymongo import MongoClient
@@ -14,6 +13,7 @@ load_dotenv()
 MONGO_URL = os.environ.get("MONGO_URL")
 WANTGOO_MEMBER_TOKEN = os.environ.get("WANTGOO_MEMBER_TOKEN")
 WANTGOO_BID = os.environ.get("WANTGOO_BID")
+WANTGOO_CLIENT_FINGERPRINT = os.environ.get("WANTGOO_CLIENT_FINGERPRINT")
 WANTGOO_CLIENT_SIGNATURE = os.environ.get("WANTGOO_CLIENT_SIGNATURE")
 TPE_TIMEZONE = pytz.timezone("Asia/Taipei")
 
@@ -23,11 +23,6 @@ chips_col_name = "chips"
 
 if not WANTGOO_MEMBER_TOKEN:
     raise ValueError(WANTGOO_MEMBER_TOKEN, "WANTGOO_MEMBER_TOKEN is missing")
-
-session = requests.Session()
-adapter = HTTPAdapter(max_retries=5)
-session.mount("http://", adapter)
-session.mount("https://", adapter)
 
 
 def get_date_range(SINCE_DATE, UNTIL_DATE):
@@ -57,8 +52,9 @@ def crawl_stock_date_chips(stock_id, since_date, until_date):
     until = until_date.strftime("%Y/%m/%d")
 
     url = f"https://www.wantgoo.com/stock/{stock_id}/major-investors/branch-buysell-data"
+    referer = f"https://www.wantgoo.com/stock/{stock_id}/major-investors/branch-buysell"
 
-    res = session.get(
+    res = requests.get(
         url,
         params={
             "isOverBuy": "true",
@@ -68,11 +64,13 @@ def crawl_stock_date_chips(stock_id, since_date, until_date):
         headers={
             "user-agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
             "(KHTML, like Gecko) Chrome/92.0.4515.159 Safari/537.36",
+            "x-client-signature": WANTGOO_CLIENT_SIGNATURE,
+            "referer": referer,
         },
         cookies={
             "member_token": WANTGOO_MEMBER_TOKEN,
             "BID": WANTGOO_BID,
-            "client_signature": WANTGOO_CLIENT_SIGNATURE,
+            "client_fingerprint": WANTGOO_CLIENT_FINGERPRINT,
         },
     )
 

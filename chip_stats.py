@@ -144,7 +144,7 @@ def main(stock_id, big_trader_threshold):
 
     print(f"generate {stock_id} png")
     #  plt.show()
-    ax.figure.savefig(f"png/{stock_id}.png", bbox_inches="tight")
+    ax.figure.savefig(f"png/{stock_id}_{last_day}.png", bbox_inches="tight")
 
 
 if __name__ == "__main__":
