@@ -48,11 +48,11 @@ def main():
     prices_col_name = "dailyPrices"
     for stock_id in existed_stock_ids:
         latest_data = db[prices_col_name].find_one(
-            {"stockId": stock_id}, sort=[("date", -1)]
+            {"stockId": stock_id}, sort=[("日期", -1)]
         )
 
         last_until_date = (
-            latest_data["date"].astimezone(tz=TPE_TIMEZONE)
+            latest_data["日期"].astimezone(tz=TPE_TIMEZONE)
             if latest_data
             else since_date
         )

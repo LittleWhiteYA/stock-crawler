@@ -1,5 +1,5 @@
 import os
-from pymongo import MongoClient
+from pymongo import MongoClient, ASCENDING
 import pandas as pd
 import matplotlib.pyplot as plt
 from dotenv import load_dotenv
@@ -91,12 +91,14 @@ def get_trade_dataframe(stock_id, big_trader_threshold):
 
 def get_price_dataframe(stock_id):
     prices = list(
-        db.dailyPrices.find({"stockId": stock_id}, {"_id": 0, "close": 1, "date": 1})
+        db.dailyPrices.find({"stockId": stock_id}, {"_id": 0, "收盤價": 1, "日期": 1}).sort(
+            [("日期", ASCENDING)]
+        )
     )
 
     prices_df = pd.DataFrame(
-        map(lambda e: {"price": e["close"]}, prices),
-        index=map(lambda p: p["date"].astimezone(TPE_TIMEZONE).date(), prices),
+        map(lambda e: {"price": e["收盤價"]}, prices),
+        index=map(lambda p: p["日期"].astimezone(TPE_TIMEZONE).date(), prices),
     )
 
     #  print(prices_df.to_markdown())
