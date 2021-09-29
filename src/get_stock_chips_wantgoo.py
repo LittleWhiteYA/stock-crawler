@@ -8,14 +8,13 @@ from dateutil.rrule import rrule, WEEKLY, MO
 from pymongo import MongoClient
 from dotenv import load_dotenv
 
-from client_signature import chips_client_signature_mapping
-
 load_dotenv()
 
 MONGO_URL = os.environ.get("MONGO_URL")
 WANTGOO_MEMBER_TOKEN = os.environ.get("WANTGOO_MEMBER_TOKEN")
 WANTGOO_BID = os.environ.get("WANTGOO_BID")
 WANTGOO_CLIENT_FINGERPRINT = os.environ.get("WANTGOO_CLIENT_FINGERPRINT")
+WANTGOO_CLIENT_SIGNATURE = os.environ.get("WANTGOO_CLIENT_SIGNATURE")
 TPE_TIMEZONE = pytz.timezone("Asia/Taipei")
 
 mongo_client = MongoClient(MONGO_URL, tz_aware=True)
@@ -52,7 +51,9 @@ def crawl_stock_date_chips(stock_id, since_date, until_date):
     since = since_date.strftime("%Y/%m/%d")
     until = until_date.strftime("%Y/%m/%d")
 
-    url = f"https://www.wantgoo.com/stock/{stock_id}/major-investors/branch-buysell-data"
+    url = (
+        f"https://www.wantgoo.com/stock/{stock_id}/major-investors/branch-buysell-data"
+    )
     referer = f"https://www.wantgoo.com/stock/{stock_id}/major-investors/branch-buysell"
 
     res = requests.get(
@@ -61,13 +62,12 @@ def crawl_stock_date_chips(stock_id, since_date, until_date):
             "isOverBuy": "true",
             "beginDate": since,
             "endDate": until,
-            "m": "Mjc2ODc2",
         },
         headers={
             "user-agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
-            "(KHTML, like Gecko) Chrome/94.0.4606.61 Safari/537.36",
+            "(KHTML, like Gecko) Chrome/92.0.4515.159 Safari/537.36",
+            "x-client-signature": WANTGOO_CLIENT_SIGNATURE,
             "referer": referer,
-            "x-client-signature": chips_client_signature_mapping[stock_id],
         },
         cookies={
             "member_token": WANTGOO_MEMBER_TOKEN,
