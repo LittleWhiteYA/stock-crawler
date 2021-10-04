@@ -1,6 +1,7 @@
 import os
 import time
 import pytz
+from datetime import datetime
 from pymongo import MongoClient
 from dotenv import load_dotenv
 
@@ -45,9 +46,9 @@ def main():
         get_stock_chips(stock_id, last_until_date, until_date)
 
     print('update stock daily prices')
-    prices_col_name = "dailyPrices"
+    prices_collection_name = "dailyPrices"
     for stock_id in existed_stock_ids:
-        latest_data = db[prices_col_name].find_one(
+        latest_data = db[prices_collection_name].find_one(
             {"stockId": stock_id}, sort=[("日期", -1)]
         )
 
@@ -62,7 +63,22 @@ def main():
         format_daily_prices = get_stock_prices(stock_id, last_until_date)
 
         if format_daily_prices:
-            db[prices_col_name].insert_many(format_daily_prices)
+            now = datetime.now()
+
+            for price in format_daily_prices:
+                db[prices_collection_name].update_one(
+                    {
+                        "stockId": price["stockId"],
+                        "日期": price["日期"],
+                    },
+                    {
+                        "$setOnInsert": {
+                            **price,
+                            "createdAt": now,
+                        }
+                    },
+                    upsert=True,
+                )
 
         time.sleep(1)
 

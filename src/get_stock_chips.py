@@ -14,7 +14,6 @@ MONGO_URL = os.environ.get("MONGO_URL")
 WANTGOO_MEMBER_TOKEN = os.environ.get("WANTGOO_MEMBER_TOKEN")
 WANTGOO_BID = os.environ.get("WANTGOO_BID")
 WANTGOO_CLIENT_FINGERPRINT = os.environ.get("WANTGOO_CLIENT_FINGERPRINT")
-WANTGOO_CLIENT_SIGNATURE = os.environ.get("WANTGOO_CLIENT_SIGNATURE")
 TPE_TIMEZONE = pytz.timezone("Asia/Taipei")
 
 mongo_client = MongoClient(MONGO_URL, tz_aware=True)
