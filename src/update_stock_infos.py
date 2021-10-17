@@ -1,12 +1,11 @@
 import os
 import time
-import pytz
-from datetime import datetime
+from datetime import datetime, timedelta
 from pymongo import MongoClient
 from dotenv import load_dotenv
 
 from get_stock_daily_prices import get_stock_prices
-from get_stock_chips import get_date_range, get_stock_chips
+from get_stock_chips import get_stock_chips, get_access_token
 
 load_dotenv()
 
@@ -14,10 +13,8 @@ SINCE_DATE = os.environ.get("SINCE_DATE")
 UNTIL_DATE = os.environ.get("UNTIL_DATE")
 
 MONGO_URL = os.environ.get("MONGO_URL")
-WANTGOO_MEMBER_TOKEN = os.environ.get("WANTGOO_MEMBER_TOKEN")
-TPE_TIMEZONE = pytz.timezone("Asia/Taipei")
 
-mongo_client = MongoClient(MONGO_URL, tz_aware=True)
+mongo_client = MongoClient(MONGO_URL)
 db = mongo_client.get_default_database()
 
 
@@ -26,34 +23,35 @@ def main():
     existed_stocks = db["stocks"].find({"shouldSkip": False}, sort=[("stockId", 1)])
     existed_stock_ids = list(map(lambda stock: stock["stockId"], existed_stocks))
 
-    since_date, until_date = get_date_range(SINCE_DATE, UNTIL_DATE)
+    if SINCE_DATE:
+        since_date = datetime.strptime(SINCE_DATE, "%Y-%m-%d")
+
+    else:  # from the first weekday of this week
+        today = datetime.now()
+        since_date = today + timedelta(days=-today.weekday())
+
+    if UNTIL_DATE:
+        until_date = min(datetime.strptime(UNTIL_DATE, "%Y-%m-%d"), datetime.now())
+    else:
+        until_date = datetime.now()
 
     print('update stock chips')
-    chips_col_name = "chips"
-    for stock_id in existed_stock_ids:
-        latest_data = db[chips_col_name].find_one(
-            {"stockId": stock_id}, sort=[("untilDate", -1)]
-        )
-        last_until_date = (
-            latest_data["untilDate"].astimezone(tz=TPE_TIMEZONE)
-            if latest_data
-            else since_date
-        )
-        print(f"stock id: {stock_id}")
-        print(f"since_date: {last_until_date}")
-        print(f"until_date: {until_date}")
+    access_token = get_access_token()
 
-        get_stock_chips(stock_id, last_until_date, until_date)
+    for stock_id in existed_stock_ids:
+        get_stock_chips(stock_id, since_date, until_date, access_token)
 
     print('update stock daily prices')
-    prices_collection_name = "dailyPrices"
+    prices_collection = "dailyPrices"
+    date_column = "日期"
+
     for stock_id in existed_stock_ids:
-        latest_data = db[prices_collection_name].find_one(
-            {"stockId": stock_id}, sort=[("日期", -1)]
+        latest_data = db[prices_collection].find_one(
+            {"stockId": stock_id}, sort=[(date_column, -1)]
         )
 
         last_until_date = (
-            latest_data["日期"].astimezone(tz=TPE_TIMEZONE)
+            latest_data[date_column]
             if latest_data
             else since_date
         )
@@ -66,10 +64,10 @@ def main():
             now = datetime.now()
 
             for price in format_daily_prices:
-                db[prices_collection_name].update_one(
+                db[prices_collection].update_one(
                     {
                         "stockId": price["stockId"],
-                        "日期": price["日期"],
+                        date_column: price[date_column],
                     },
                     {
                         "$setOnInsert": {

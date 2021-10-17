@@ -41,38 +41,44 @@ def get_threshold(stock_id):
 
 
 def get_trade_dataframe(stock_id, big_trader_threshold):
-    weekly_trades = list(
-        db["chips"].find(
-            {"stockId": stock_id, "untilDate": {"$gte": datetime(2021, 1, 1)}}
+    chips_collection = "chips"
+    date = "日期"
+    buyNum = "買張"
+    sellNum = "賣張"
+    agentName = "分點名稱"
+
+    daily_trades = list(
+        db[chips_collection].find(
+            {"stockId": stock_id, date: {"$gte": datetime(2021, 1, 1)}}
         )
     )
 
-    if not weekly_trades:
-        raise ValueError(weekly_trades, f"stock id {stock_id} may not be crawled yet")
+    if not daily_trades:
+        raise ValueError(daily_trades, f"stock id {stock_id} may not be crawled yet")
 
-    weekly_trades_stats = []
+    daily_trades_stats = []
 
-    for weekly_trade in weekly_trades:
-        count_weekly_traders = map(
+    for daily_trade in daily_trades:
+        count_daily_traders = map(
             lambda trade: {
                 **trade,
-                "quantitiesCount": trade["buyQuantities"] - trade["sellQuantities"],
+                "quantitiesCount": trade[buyNum] - trade[sellNum],
             },
-            weekly_trade["data"],
+            daily_trade["data"],
         )
-        big_traders = list(count_weekly_traders)
+        big_traders = list(count_daily_traders)
 
-        weekly_trades_stats.append(
-            {trader["agentName"]: trader["quantitiesCount"] for trader in big_traders}
+        daily_trades_stats.append(
+            {trader[agentName]: trader["quantitiesCount"] for trader in big_traders}
         )
 
-    weekly_trades_df = pd.DataFrame(
-        weekly_trades_stats,
-        index=map(lambda trade: trade["untilDate"].date(), weekly_trades),
+    daily_trades_df = pd.DataFrame(
+        daily_trades_stats,
+        index=map(lambda trade: trade[date].date(), daily_trades),
     )
 
     # fill NaN to 0 and do cumsum
-    cusum_trades_df = weekly_trades_df.fillna(0).cumsum()
+    cusum_trades_df = daily_trades_df.fillna(0).cumsum()
 
     # filter columns according to last row value
     big_trader_filter = abs(cusum_trades_df[-1:].squeeze()) > big_trader_threshold
@@ -114,13 +120,14 @@ def main(stock_id, big_trader_threshold):
 
     # from matplotlib import font_manager
     # font_set = {f.name for f in font_manager.fontManager.ttflist}
-    plt.rcParams["font.sans-serif"] = "Noto Sans CJK JP"
+    plt.rcParams["font.sans-serif"] = "Noto Sans TC"
     plt.rcParams["figure.dpi"] = 200
 
     ax = trade_df.plot(
         figsize=(10, 5),
         fontsize=15,
-        style="o-",
+        style='-',
+        linewidth=3,
         grid=True,
     )
 

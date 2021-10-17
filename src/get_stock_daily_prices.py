@@ -1,17 +1,14 @@
 import requests
 import json
-import pytz
 from datetime import datetime
 from urllib.parse import urlencode
 
-
-TPE_TIMEZONE = pytz.timezone("Asia/Taipei")
 
 url = "https://api.cmoney.tw/MobileService/ashx/GetDtnoData.ashx"
 
 
 def get_stock_prices(stock_id, since_date):
-    days = (datetime.now(TPE_TIMEZONE) - since_date).days
+    days = (datetime.now() - since_date).days
 
     api_paramStr = (
         f"AssignID={stock_id};DTMode=0;DTRange={days};"
@@ -32,7 +29,7 @@ def get_stock_prices(stock_id, since_date):
     format_daily_prices = []
 
     for data in daily_prices['Data']:
-        date = datetime.strptime(data[0], '%Y%m%d').replace(tzinfo=pytz.utc)
+        date = datetime.strptime(data[0], '%Y%m%d')
         if date <= since_date:
             continue
 
