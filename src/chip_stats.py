@@ -2,6 +2,7 @@ import os
 from pymongo import MongoClient, ASCENDING
 import pandas as pd
 import matplotlib.pyplot as plt
+from matplotlib.dates import DateFormatter
 from dotenv import load_dotenv
 from datetime import datetime
 import pytz
@@ -148,6 +149,8 @@ def main(stock_id, big_trader_threshold):
     )
     right_ax.tick_params(axis="y", labelsize=15)
     right_ax.set_ylabel("price", fontsize=10)
+
+    ax.xaxis.set_major_formatter(DateFormatter('%m-%d'))
 
     plt.minorticks_on()
 
