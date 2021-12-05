@@ -35,13 +35,13 @@ def main():
     else:
         until_date = datetime.now()
 
-    print('update stock chips')
+    print("update stock chips")
     access_token = get_access_token()
 
     for stock_id in existed_stock_ids:
         get_stock_chips(stock_id, since_date, until_date, access_token)
 
-    print('update stock daily prices')
+    print("update stock daily prices")
     prices_collection = "dailyPrices"
     date_column = "日期"
 
@@ -50,11 +50,7 @@ def main():
             {"stockId": stock_id}, sort=[(date_column, -1)]
         )
 
-        last_until_date = (
-            latest_data[date_column]
-            if latest_data
-            else since_date
-        )
+        last_until_date = latest_data[date_column] if latest_data else since_date
         print(f"stock id: {stock_id}")
         print(f"since_date: {last_until_date}")
 

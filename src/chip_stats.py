@@ -5,7 +5,9 @@ import matplotlib.pyplot as plt
 from matplotlib.dates import DateFormatter
 from dotenv import load_dotenv
 from datetime import datetime
+from dateutil.relativedelta import relativedelta
 import pytz
+from pathlib import Path
 
 load_dotenv()
 
@@ -15,6 +17,10 @@ TPE_TIMEZONE = pytz.timezone("Asia/Taipei")
 
 mongo_client = MongoClient(MONGO_URL, tz_aware=True)
 db = mongo_client.get_default_database()
+
+SIX_MONTH = 6
+
+months_before = datetime.now() - relativedelta(months=SIX_MONTH)
 
 
 def get_stock_id():
@@ -49,9 +55,7 @@ def get_trade_dataframe(stock_id, big_trader_threshold):
     agentName = "分點名稱"
 
     daily_trades = list(
-        db[chips_collection].find(
-            {"stockId": stock_id, date: {"$gte": datetime(2021, 1, 1)}}
-        )
+        db[chips_collection].find({"stockId": stock_id, date: {"$gte": months_before}})
     )
 
     if not daily_trades:
@@ -98,9 +102,10 @@ def get_trade_dataframe(stock_id, big_trader_threshold):
 
 def get_price_dataframe(stock_id):
     prices = list(
-        db.dailyPrices.find({"stockId": stock_id}, {"_id": 0, "收盤價": 1, "日期": 1}).sort(
-            [("日期", ASCENDING)]
-        )
+        db.dailyPrices.find(
+            {"stockId": stock_id, "日期": {"$gte": months_before}},
+            {"_id": 0, "收盤價": 1, "日期": 1},
+        ).sort([("日期", ASCENDING)])
     )
 
     prices_df = pd.DataFrame(
@@ -127,7 +132,7 @@ def main(stock_id, big_trader_threshold):
     ax = trade_df.plot(
         figsize=(10, 5),
         fontsize=15,
-        style='-',
+        style="-",
         linewidth=3,
         grid=True,
     )
@@ -150,13 +155,15 @@ def main(stock_id, big_trader_threshold):
     right_ax.tick_params(axis="y", labelsize=15)
     right_ax.set_ylabel("price", fontsize=10)
 
-    ax.xaxis.set_major_formatter(DateFormatter('%m-%d'))
+    ax.xaxis.set_major_formatter(DateFormatter("%m-%d"))
 
     plt.minorticks_on()
 
     print(f"generate {stock_id} png")
     #  plt.show()
-    ax.figure.savefig(f"../png/{stock_id}_{last_day}.png", bbox_inches="tight")
+    ax.figure.savefig(
+        f"{Path().parent}/png/{stock_id}_{last_day}.png", bbox_inches="tight"
+    )
 
 
 if __name__ == "__main__":

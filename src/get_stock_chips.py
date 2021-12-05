@@ -61,14 +61,16 @@ def crawl_stock_date_chips(stock_id, date, access_token):
     format_daily_chips = []
 
     for data in daily_chips["data"]:
-        format_daily_chips.append({
-            "分點代號": data[1],
-            "分點名稱": data[2],
-            "買張": int(data[3]),
-            "賣張": int(data[4]),
-            "買金額": int(data[5]),
-            "賣金額": int(data[6]),
-        })
+        format_daily_chips.append(
+            {
+                "分點代號": data[1],
+                "分點名稱": data[2],
+                "買張": int(data[3]),
+                "賣張": int(data[4]),
+                "買金額": int(data[5]),
+                "賣金額": int(data[6]),
+            }
+        )
 
     return format_daily_chips
 
@@ -81,9 +83,7 @@ def get_stock_chips(stock_id, since_date, until_date, access_token):
         {"stockId": stock_id}, sort=[(date_column, -1)]
     )
     since_date = (
-        latest_data[date_column] + timedelta(days=1)
-        if latest_data
-        else since_date
+        latest_data[date_column] + timedelta(days=1) if latest_data else since_date
     )
     print(f"stock id: {stock_id}")
     print(f"since_date: {since_date}")
