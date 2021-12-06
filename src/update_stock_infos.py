@@ -60,19 +60,20 @@ def main():
             now = datetime.now()
 
             for price in format_daily_prices:
+                price["createdAt"] = now
+
                 db[prices_collection].update_one(
                     {
                         "stockId": price["stockId"],
                         date_column: price[date_column],
                     },
                     {
-                        "$setOnInsert": {
-                            **price,
-                            "createdAt": now,
-                        }
+                        "$setOnInsert": price,
                     },
                     upsert=True,
                 )
+
+            #  db[prices_collection].insert_many(format_daily_prices)
 
         time.sleep(1)
 
