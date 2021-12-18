@@ -1,11 +1,10 @@
 import os
-import time
 from datetime import datetime, timedelta
 from pymongo import MongoClient
 from dotenv import load_dotenv
 
 from get_stock_daily_prices import get_stock_prices
-from get_stock_chips import get_stock_chips, get_access_token
+from get_stock_chips import get_stock_chips
 
 load_dotenv()
 
@@ -35,15 +34,42 @@ def main():
     else:
         until_date = datetime.now()
 
+    date_column = "日期"
+
     print("update stock chips")
-    access_token = get_access_token()
+    chips_collection = "chips"
 
     for stock_id in existed_stock_ids:
-        get_stock_chips(stock_id, since_date, until_date, access_token)
+        latest_data = db[chips_collection].find_one(
+            {"stockId": stock_id}, sort=[(date_column, -1)]
+        )
+        since_date = (
+            latest_data[date_column] + timedelta(days=1) if latest_data else since_date
+        )
+        print(f"stock id: {stock_id}")
+        print(f"since_date: {since_date}")
+        print(f"until_date: {until_date}")
+
+        chips = get_stock_chips(stock_id, since_date, until_date)
+
+        now = datetime.now()
+
+        for chip in chips:
+            chip["createdAt"] = now
+
+            db[chips_collection].update_one(
+                {
+                    "stockId": chip["stockId"],
+                    date_column: chip[date_column],
+                },
+                {
+                    "$setOnInsert": chip,
+                },
+                upsert=True,
+            )
 
     print("update stock daily prices")
     prices_collection = "dailyPrices"
-    date_column = "日期"
 
     for stock_id in existed_stock_ids:
         latest_data = db[prices_collection].find_one(
@@ -56,26 +82,23 @@ def main():
 
         format_daily_prices = get_stock_prices(stock_id, last_until_date)
 
-        if format_daily_prices:
-            now = datetime.now()
+        now = datetime.now()
 
-            for price in format_daily_prices:
-                price["createdAt"] = now
+        for price in format_daily_prices:
+            price["createdAt"] = now
 
-                db[prices_collection].update_one(
-                    {
-                        "stockId": price["stockId"],
-                        date_column: price[date_column],
-                    },
-                    {
-                        "$setOnInsert": price,
-                    },
-                    upsert=True,
-                )
+            db[prices_collection].update_one(
+                {
+                    "stockId": price["stockId"],
+                    date_column: price[date_column],
+                },
+                {
+                    "$setOnInsert": price,
+                },
+                upsert=True,
+            )
 
-            #  db[prices_collection].insert_many(format_daily_prices)
-
-        time.sleep(1)
+        #  db[prices_collection].insert_many(format_daily_prices)
 
     mongo_client.close()
 

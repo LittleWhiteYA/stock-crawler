@@ -2,12 +2,15 @@ import requests
 import json
 from datetime import datetime
 from urllib.parse import urlencode
+import time
 
 
 url = "https://api.cmoney.tw/MobileService/ashx/GetDtnoData.ashx"
 
 
 def get_stock_prices(stock_id, since_date):
+    date_column = "日期"
+
     days = (datetime.now() - since_date).days
 
     api_paramStr = (
@@ -22,6 +25,7 @@ def get_stock_prices(stock_id, since_date):
         "filterNo": "0",
     }
 
+    time.sleep(1)
     res = requests.get(url, params=urlencode(params, safe=";"))
 
     daily_prices = json.loads(res.text)
@@ -36,7 +40,7 @@ def get_stock_prices(stock_id, since_date):
         format_daily_prices.append(
             {
                 "stockId": stock_id,
-                "日期": date,
+                date_column: date,
                 "開盤價": float(data[1]),
                 "最高價": float(data[2]),
                 "最低價": float(data[3]),

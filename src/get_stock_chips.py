@@ -2,7 +2,7 @@ import os
 import requests
 import json
 import time
-from datetime import timedelta, datetime
+from datetime import timedelta
 from dateutil.rrule import rrule, DAILY
 from pymongo import MongoClient
 from dotenv import load_dotenv
@@ -18,8 +18,15 @@ MONGO_URL = os.environ.get("MONGO_URL")
 mongo_client = MongoClient(MONGO_URL)
 db = mongo_client.get_default_database()
 
+global_access_token = None
+
 
 def get_access_token():
+    global global_access_token
+
+    if global_access_token:
+        return global_access_token
+
     access_token_url = "https://api.cmoney.tw/identity/token"
 
     data = {
@@ -34,7 +41,9 @@ def get_access_token():
 
     token_info = json.loads(res.text)
 
-    return token_info["access_token"]
+    global_access_token = token_info["access_token"]
+
+    return global_access_token
 
 
 def crawl_stock_date_chips(stock_id, date, access_token):
@@ -75,19 +84,9 @@ def crawl_stock_date_chips(stock_id, date, access_token):
     return format_daily_chips
 
 
-def get_stock_chips(stock_id, since_date, until_date, access_token):
+def get_stock_chips(stock_id, since_date, until_date):
     date_column = "日期"
-    chips_collection = "chips"
-
-    latest_data = db[chips_collection].find_one(
-        {"stockId": stock_id}, sort=[(date_column, -1)]
-    )
-    since_date = (
-        latest_data[date_column] + timedelta(days=1) if latest_data else since_date
-    )
-    print(f"stock id: {stock_id}")
-    print(f"since_date: {since_date}")
-    print(f"until_date: {until_date}")
+    access_token = get_access_token()
 
     dates = [
         dt
@@ -99,29 +98,20 @@ def get_stock_chips(stock_id, since_date, until_date, access_token):
         )
     ]
 
-    now = datetime.now()
+    daily_chips = []
 
-    # TODO: move to update_stock_infos.py
     for date in dates:
         print(f"date: {date}")
 
+        time.sleep(randint(1, 3))
         chips = crawl_stock_date_chips(stock_id, date, access_token)
 
-        doc = {
-            "stockId": stock_id,
-            date_column: date,
-        }
-
-        db[chips_collection].update_one(
-            doc,
+        daily_chips.append(
             {
-                "$setOnInsert": {
-                    **doc,
-                    "data": chips,
-                    "createdAt": now,
-                }
-            },
-            upsert=True,
+                "stockId": stock_id,
+                date_column: date,
+                "data": chips,
+            }
         )
 
-        time.sleep(randint(1, 3))
+    return daily_chips
