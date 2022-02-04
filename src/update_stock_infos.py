@@ -16,11 +16,26 @@ MONGO_URL = os.environ.get("MONGO_URL")
 mongo_client = MongoClient(MONGO_URL)
 db = mongo_client.get_default_database()
 
+def get_stock_id():
+    stock_id = input("input stock id or 'all': ")
+
+    if not stock_id:
+        raise ValueError(stock_id, "stock_id is missing")
+
+    if stock_id == "all":
+        return "all"
+
+    return stock_id
+
 
 def main():
+    stock_id = get_stock_id()
 
-    existed_stocks = db["stocks"].find({"shouldSkip": False}, sort=[("stockId", 1)])
-    existed_stock_ids = list(map(lambda stock: stock["stockId"], existed_stocks))
+    if stock_id == "all":
+        existed_stock_ids = [stock_id]
+    else:
+        existed_stocks = db["stocks"].find({"shouldSkip": False}, sort=[("stockId", 1)])
+        existed_stock_ids = list(map(lambda stock: stock["stockId"], existed_stocks))
 
     if SINCE_DATE:
         since_date = datetime.strptime(SINCE_DATE, "%Y-%m-%d")

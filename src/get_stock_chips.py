@@ -103,7 +103,7 @@ def get_stock_chips(stock_id, since_date, until_date):
     for date in dates:
         print(f"date: {date}")
 
-        time.sleep(randint(1, 3))
+        time.sleep(0.1)
         chips = crawl_stock_date_chips(stock_id, date, access_token)
 
         daily_chips.append(
