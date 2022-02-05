@@ -30,45 +30,6 @@ class Stock:
         if self.price:
             return self.price
 
-        #  from datetime import datetime, timedelta
-
-        #  year = int(self.quarter_info["會計年季度"][:-1])
-        #  quarter = int(self.quarter_info["會計年季度"][-1])
-
-        #  if quarter == 1:
-        #      after_date = datetime(year, 5, 15)
-        #  elif quarter == 2:
-        #      after_date = datetime(year, 8, 14)
-        #  elif quarter == 3:
-        #      after_date = datetime(year, 11, 14)
-        #  elif quarter == 4:
-        #      after_date = datetime(year + 1, 3, 31)
-
-        #  price = db.dailyPrices.find_one(
-        #      {
-        #          "stockId": self.stock_id,
-        #          "日期": { "$gt": after_date, "$lt": after_date + timedelta(days=10) },
-        #      },
-        #      sort=[("日期", 1)]
-        #  )
-
-        #  price = price["收盤價"] if price else 0
-
-        #  db.prices_quarter.update_one(
-        #      {
-        #          "stockId": self.stock_id,
-        #          "會計年季度": self.quarter_info["會計年季度"],
-        #      },
-        #      {
-        #          "$setOnInsert": {
-        #              "stockId": self.stock_id,
-        #              "會計年季度": self.quarter_info["會計年季度"],
-        #              "price": price,
-        #          }
-        #      },
-        #      upsert=True
-        #  )
-
         price_quarter = self.db.prices_quarter.find_one(
             {
                 "stockId": self.stock_id,
@@ -169,7 +130,6 @@ def main():
     prev_quarter_stock_ids = first_quarter_stock_ids
 
     for curr_quarter in stocks_rank_df.iloc[:, 1:]:
-
         curr_stock_ids = stocks_rank_df[curr_quarter]
 
         sell_stock_ids = set(prev_quarter_stock_ids.values) - set(curr_stock_ids.values)

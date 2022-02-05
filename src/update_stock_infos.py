@@ -80,8 +80,8 @@ def main():
                 upsert=True,
             )
 
-    print("update stock daily prices")
     prices_collection = "dailyPrices"
+    print(f"update stock daily prices in collection {prices_collection}")
 
     for stock_id in existed_stock_ids:
         if int(stock_id) <= 1100:

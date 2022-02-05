@@ -121,9 +121,25 @@ def get_stock_infos(stock_id, since_year, until_year):
 
     return infos
 
+def get_stock_id():
+    stock_id = input("input stock id or 'all': ")
+
+    if not stock_id:
+        raise ValueError(stock_id, "stock_id is missing")
+
+    if stock_id == "all":
+        return "all"
+
+    return stock_id
+
 
 def main():
-    stocks = list(db.stocks.find().sort([("stockId", 1)]))
+    stock_id = get_stock_id()
+
+    if stock_id == "all":
+        stocks = list(db.stocks.find().sort([("stockId", 1)]))
+    else:
+        stocks = [{ "stockId": stock_id }]
 
     for stock in stocks:
         stock_id = stock["stockId"]
@@ -170,23 +186,26 @@ def main():
                 sort=[("日期", 1)]
             )
 
-            db.prices_quarter.update_one(
-                {
-                    "stockId": stock_id,
-                    "會計年季度": quarter,
-                },
-                {
-                    "$setOnInsert": {
+            if price:
+                db.prices_quarter.update_one(
+                    {
                         "stockId": stock_id,
                         "會計年季度": quarter,
-                        "price": price,
-                        "createdAt": now,
-                    }
-                },
-                upsert=True
-            )
+                    },
+                    {
+                        "$setOnInsert": {
+                            "stockId": stock_id,
+                            "會計年季度": quarter,
+                            "price": price["收盤價"],
+                            "createdAt": now,
+                        }
+                    },
+                    upsert=True
+                )
+            else:
+                print(f"missing price in stockId {stock_id}, year {year}, quarter {quarter_num}")
 
-        time.sleep(1)
+        time.sleep(0.1)
 
 
 if __name__ == "__main__":
