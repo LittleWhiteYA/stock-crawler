@@ -2,7 +2,7 @@ import os
 import requests
 import json
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from pymongo import MongoClient
 from dotenv import load_dotenv
 
@@ -133,18 +133,57 @@ def main():
 
         now = datetime.now()
         for info in stock_infos:
-            print(f"stockId: {info['stockId']}, quarter year: {info['會計年季度']}")
+            stock_id = info["stockId"]
+            quarter = info["會計年季度"]
+
+            print(f"stockId: {stock_id}, quarter year: {quarter}")
 
             info["createdAt"] = now
             db.stock_infos_quarter.update_one(
                 {
-                    "stockId": info["stockId"],
-                    "會計年季度": info["會計年季度"],
+                    "stockId": stock_id,
+                    "會計年季度": quarter,
                 },
                 {
                     "$setOnInsert": info,
                 },
                 upsert=True,
+            )
+
+            year = int(info["會計年季度"][:-1])
+            quarter_num = int(info["會計年季度"][-1])
+
+            if quarter_num == 1:
+                after_date = datetime(year, 5, 15)
+            elif quarter_num == 2:
+                after_date = datetime(year, 8, 14)
+            elif quarter_num == 3:
+                after_date = datetime(year, 11, 14)
+            elif quarter_num == 4:
+                after_date = datetime(year + 1, 3, 31)
+
+            price = db.dailyPrices.find_one(
+                {
+                    "stockId": stock_id,
+                    "日期": { "$gt": after_date, "$lt": after_date + timedelta(days=10) },
+                },
+                sort=[("日期", 1)]
+            )
+
+            db.prices_quarter.update_one(
+                {
+                    "stockId": stock_id,
+                    "會計年季度": quarter,
+                },
+                {
+                    "$setOnInsert": {
+                        "stockId": stock_id,
+                        "會計年季度": quarter,
+                        "price": price,
+                        "createdAt": now,
+                    }
+                },
+                upsert=True
             )
 
         time.sleep(1)

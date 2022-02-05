@@ -4,6 +4,8 @@ from dotenv import load_dotenv
 import heapq
 import pandas as pd
 
+from portfolio import Portfolio
+
 load_dotenv()
 
 MONGO_URL = os.environ.get("MONGO_URL")
@@ -13,7 +15,8 @@ db = mongo_client.get_default_database()
 
 
 class Stock:
-    def __init__(self, quarter_info):
+    def __init__(self, db, quarter_info):
+        self.db = db
         self.quarter_info = quarter_info
         self.stock_id = quarter_info["stockId"]
         self.price = None
@@ -66,7 +69,7 @@ class Stock:
         #      upsert=True
         #  )
 
-        price_quarter = db.prices_quarter.find_one(
+        price_quarter = self.db.prices_quarter.find_one(
             {
                 "stockId": self.stock_id,
                 "會計年季度": self.quarter_info["會計年季度"],
@@ -119,7 +122,11 @@ class Stock:
 def main():
     account_quarters = []
 
-    for year in range(2016, 2021):
+    start_year = 2016
+    end_year = 2020
+    top_num_stocks = 30
+
+    for year in range(start_year, end_year + 1):
         for quarter in range(1, 5):
             account_quarters.append(f"{year}{quarter}")
 
@@ -128,12 +135,13 @@ def main():
     #  tmp = None
 
     for quarter in account_quarters:
+        print(f"quarter: {quarter}")
         stock_infos = db.stock_infos_quarter.find({"會計年季度": quarter})
 
         stocks_EBITDA_mod_EV = {}
 
         for info in stock_infos:
-            stock = Stock(info)
+            stock = Stock(db, info)
 
             val = stock.EBITDA_mod_EV
             if val > 0:
@@ -141,15 +149,39 @@ def main():
                 #  stocks_EBITDA_mod_EV[stock.id] = stock
 
         #  tmp = dict(sorted(stocks_EBITDA_mod_EV.items(), key=lambda x: x[1], reverse=True)[:30])
-        #  print(quarter)
         #  print(tmp)
 
         stocks_quarter_rank[quarter] = heapq.nlargest(
-            30, stocks_EBITDA_mod_EV, key=stocks_EBITDA_mod_EV.get
+            top_num_stocks, stocks_EBITDA_mod_EV, key=stocks_EBITDA_mod_EV.get
         )
 
-    stocks_rank_pd = pd.DataFrame(stocks_quarter_rank)
-    print(stocks_rank_pd)
+    stocks_rank_df = pd.DataFrame(stocks_quarter_rank)
+
+    init_money = 3000
+    first_quarter = stocks_rank_df.columns[0]
+    first_quarter_stock_ids = stocks_rank_df[first_quarter]
+
+    porfolio = Portfolio(db, top_num_stocks, init_money, first_quarter)
+
+    for stock_id in first_quarter_stock_ids:
+        porfolio.buy(stock_id, first_quarter)
+
+    prev_quarter_stock_ids = first_quarter_stock_ids
+
+    for curr_quarter in stocks_rank_df.iloc[:, 1:]:
+
+        curr_stock_ids = stocks_rank_df[curr_quarter]
+
+        sell_stock_ids = set(prev_quarter_stock_ids.values) - set(curr_stock_ids.values)
+        buy_stock_ids = set(curr_stock_ids.values) - set(prev_quarter_stock_ids.values)
+
+        for sell_stock_id in sell_stock_ids:
+            porfolio.sell(sell_stock_id, curr_quarter)
+
+        for buy_stock_id in buy_stock_ids:
+            porfolio.buy(buy_stock_id, curr_quarter)
+
+        prev_quarter_stock_ids = curr_stock_ids
 
 
 if __name__ == "__main__":
