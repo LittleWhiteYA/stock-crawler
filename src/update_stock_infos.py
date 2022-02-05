@@ -32,17 +32,14 @@ def main():
     stock_id = get_stock_id()
 
     if stock_id == "all":
-        existed_stock_ids = [stock_id]
-    else:
         existed_stocks = db["stocks"].find({"shouldSkip": False}, sort=[("stockId", 1)])
+        #  existed_stocks = db["stocks"].find({}, sort=[("stockId", 1)])
         existed_stock_ids = list(map(lambda stock: stock["stockId"], existed_stocks))
+    else:
+        existed_stock_ids = [stock_id]
 
     if SINCE_DATE:
         since_date = datetime.strptime(SINCE_DATE, "%Y-%m-%d")
-
-    else:  # from the first weekday of this week
-        today = datetime.now()
-        since_date = today + timedelta(days=-today.weekday())
 
     if UNTIL_DATE:
         until_date = min(datetime.strptime(UNTIL_DATE, "%Y-%m-%d"), datetime.now())
@@ -87,15 +84,22 @@ def main():
     prices_collection = "dailyPrices"
 
     for stock_id in existed_stock_ids:
+        if int(stock_id) <= 1100:
+            continue
+
         latest_data = db[prices_collection].find_one(
             {"stockId": stock_id}, sort=[(date_column, -1)]
         )
 
-        last_until_date = latest_data[date_column] if latest_data else since_date
+        if since_date:
+            last_until_date = since_date
+        else:
+            latest_data[date_column]
+
         print(f"stock id: {stock_id}")
         print(f"since_date: {last_until_date}")
 
-        format_daily_prices = get_stock_prices(stock_id, last_until_date)
+        format_daily_prices = get_stock_prices(stock_id, last_until_date, until_date)
 
         now = datetime.now()
 
@@ -113,7 +117,8 @@ def main():
                 upsert=True,
             )
 
-        #  db[prices_collection].insert_many(format_daily_prices)
+        #  if format_daily_prices:
+        #      db[prices_collection].insert_many(format_daily_prices)
 
     mongo_client.close()
 
