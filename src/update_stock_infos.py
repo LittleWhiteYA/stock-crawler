@@ -1,10 +1,10 @@
 import os
+import time
 from datetime import datetime, timedelta
 from pymongo import MongoClient
 from dotenv import load_dotenv
 
-from get_stock_daily_prices import get_stock_prices
-from get_stock_chips import get_stock_chips
+from stock_crawler import StockCrawler
 
 load_dotenv()
 
@@ -12,9 +12,6 @@ SINCE_DATE = os.environ.get("SINCE_DATE")
 UNTIL_DATE = os.environ.get("UNTIL_DATE")
 
 MONGO_URL = os.environ.get("MONGO_URL")
-
-mongo_client = MongoClient(MONGO_URL)
-db = mongo_client.get_default_database()
 
 def get_stock_id():
     stock_id = input("input stock id or 'all': ")
@@ -29,7 +26,11 @@ def get_stock_id():
 
 
 def main():
+    mongo_client = MongoClient(MONGO_URL)
+    db = mongo_client.get_default_database()
+
     stock_id_input = get_stock_id()
+    date_column = "日期"
 
     if stock_id_input == "all":
         existed_stocks = db["stocks"].find({"shouldSkip": False}, sort=[("stockId", 1)])
@@ -37,6 +38,13 @@ def main():
         existed_stock_ids = list(map(lambda stock: stock["stockId"], existed_stocks))
     else:
         existed_stock_ids = [stock_id_input]
+
+    stock_crawlers = []
+
+    for stock_id in existed_stock_ids:
+        stock_crawler = StockCrawler(stock_id, date_column)
+
+        stock_crawlers.append(stock_crawler)
 
     since_date = None
     if SINCE_DATE:
@@ -47,9 +55,10 @@ def main():
     else:
         until_date = datetime.now()
 
-    date_column = "日期"
     print(f"env since_date: {since_date}")
     print(f"env until_date: {until_date}")
+
+    now = datetime.now()
 
     should_continue = input(f"should update stock '{stock_id_input}' chips (y/n) ?")
 
@@ -57,7 +66,9 @@ def main():
         print("update stock chips")
         chips_collection = "chips"
 
-        for stock_id in existed_stock_ids:
+        for stock_crawler in stock_crawlers:
+            stock_id = stock_crawler.stock_id
+
             latest_data = db[chips_collection].find_one(
                 {"stockId": stock_id}, sort=[(date_column, -1)]
             )
@@ -71,9 +82,7 @@ def main():
             print(f"since_date: {tmp_since_date}")
             print(f"until_date: {until_date}")
 
-            chips = get_stock_chips(stock_id, tmp_since_date, until_date)
-
-            now = datetime.now()
+            chips = stock_crawler.get_chips(tmp_since_date, until_date)
 
             for chip in chips:
                 chip["createdAt"] = now
@@ -95,7 +104,9 @@ def main():
         prices_collection = "dailyPrices"
         print(f"update stock daily prices in collection {prices_collection}")
 
-        for stock_id in existed_stock_ids:
+        for stock_crawler in stock_crawlers:
+            stock_id = stock_crawler.stock_id
+
             if int(stock_id) <= 1100:
                 continue
 
@@ -112,9 +123,7 @@ def main():
             print(f"since_date: {tmp_since_date}")
             print(f"until_date: {until_date}")
 
-            format_daily_prices = get_stock_prices(stock_id, tmp_since_date, until_date)
-
-            now = datetime.now()
+            format_daily_prices = stock_crawler.get_daily_prices(tmp_since_date, until_date)
 
             for price in format_daily_prices:
                 price["createdAt"] = now
@@ -132,6 +141,82 @@ def main():
 
             #  if format_daily_prices:
             #      db[prices_collection].insert_many(format_daily_prices)
+
+    should_continue = input(f"should update stock '{stock_id_input}' year reports (y/n) ?")
+
+    if should_continue == "y":
+        if stock_id_input == "all":
+            stocks = list(db.stocks.find().sort([("stockId", 1)]))
+        else:
+            stocks = [{ "stockId": stock_id_input }]
+
+        for stock in stocks:
+            stock_id = stock["stockId"]
+
+            stock_crawler = StockCrawler(stock_id, date_column)
+
+            print(f"stock id: {stock_id}")
+            stock_infos = stock_crawler.get_year_report(2012, 2021)
+
+            for info in stock_infos:
+                stock_id = info["stockId"]
+                quarter = info["會計年季度"]
+
+                print(f"stockId: {stock_id}, quarter year: {quarter}")
+
+                info["createdAt"] = now
+                db.stock_infos_quarter.update_one(
+                    {
+                        "stockId": stock_id,
+                        "會計年季度": quarter,
+                    },
+                    {
+                        "$setOnInsert": info,
+                    },
+                    upsert=True,
+                )
+
+                year = int(info["會計年季度"][:-1])
+                quarter_num = int(info["會計年季度"][-1])
+
+                if quarter_num == 1:
+                    after_date = datetime(year, 5, 15)
+                elif quarter_num == 2:
+                    after_date = datetime(year, 8, 14)
+                elif quarter_num == 3:
+                    after_date = datetime(year, 11, 14)
+                elif quarter_num == 4:
+                    after_date = datetime(year + 1, 3, 31)
+
+                price = db.dailyPrices.find_one(
+                    {
+                        "stockId": stock_id,
+                        "日期": { "$gt": after_date, "$lt": after_date + timedelta(days=10) },
+                    },
+                    sort=[("日期", 1)]
+                )
+
+                if price:
+                    db.prices_quarter.update_one(
+                        {
+                            "stockId": stock_id,
+                            "會計年季度": quarter,
+                        },
+                        {
+                            "$setOnInsert": {
+                                "stockId": stock_id,
+                                "會計年季度": quarter,
+                                "price": price["收盤價"],
+                                "createdAt": now,
+                            }
+                        },
+                        upsert=True
+                    )
+                else:
+                    print(f"missing price in stockId {stock_id}, year {year}, quarter {quarter_num}")
+
+            time.sleep(0.1)
+
 
     mongo_client.close()
 

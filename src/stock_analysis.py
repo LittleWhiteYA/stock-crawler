@@ -120,10 +120,10 @@ def main():
 
     init_money = 3000
     first_quarter = stocks_rank_df.columns[0]
-    first_quarter_stock_ids = stocks_rank_df[first_quarter]
 
     porfolio = Portfolio(db, top_num_stocks, init_money, first_quarter)
 
+    first_quarter_stock_ids = stocks_rank_df[first_quarter]
     for stock_id in first_quarter_stock_ids:
         porfolio.buy(stock_id, first_quarter)
 
