@@ -1,26 +1,26 @@
 import os
-from pymongo import MongoClient, ASCENDING
-import pandas as pd
+from pymongo import MongoClient
+#  from pymongo import MongoClient, ASCENDING
 import matplotlib.pyplot as plt
 from matplotlib.dates import DateFormatter
 from dotenv import load_dotenv
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
-import pytz
+#  import pytz
 from pathlib import Path
+
+from stock import Stock
 
 load_dotenv()
 
 MONGO_URL = os.environ.get("MONGO_URL")
-TPE_TIMEZONE = pytz.timezone("Asia/Taipei")
+#  TPE_TIMEZONE = pytz.timezone("Asia/Taipei")
 
 
 mongo_client = MongoClient(MONGO_URL, tz_aware=True)
 db = mongo_client.get_default_database()
 
 SIX_MONTH = 6
-
-months_before = datetime.now() - relativedelta(months=SIX_MONTH)
 
 
 def get_stock_id():
@@ -35,93 +35,84 @@ def get_stock_id():
     return stock_id
 
 
-def get_threshold(stock_id):
-    stock = db["stocks"].find_one({"stockId": stock_id})
+#  def get_trade_dataframe(stock_id, big_trader_threshold):
+#      chips_collection = "chips"
+#      date = "日期"
+#      buyNum = "買張"
+#      sellNum = "賣張"
+#      agentName = "分點名稱"
 
-    default_threshold = 100
+#      daily_trades = list(
+#          db[chips_collection].find({"stockId": stock_id, date: {"$gte": months_before}})
+#      )
 
-    big_trader_threshold = (
-        stock["threshold"] if "threshold" in stock else default_threshold
-    )
+#      if not daily_trades:
+#          raise ValueError(daily_trades, f"stock id {stock_id} may not be crawled yet")
 
-    return big_trader_threshold
+#      daily_trades_stats = []
 
+#      for daily_trade in daily_trades:
+#          count_daily_traders = map(
+#              lambda trade: {
+#                  **trade,
+#                  "quantitiesCount": trade[buyNum] - trade[sellNum],
+#              },
+#              daily_trade["data"],
+#          )
+#          big_traders = list(count_daily_traders)
 
-def get_trade_dataframe(stock_id, big_trader_threshold):
-    chips_collection = "chips"
-    date = "日期"
-    buyNum = "買張"
-    sellNum = "賣張"
-    agentName = "分點名稱"
+#          daily_trades_stats.append(
+#              {trader[agentName]: trader["quantitiesCount"] for trader in big_traders}
+#          )
 
-    daily_trades = list(
-        db[chips_collection].find({"stockId": stock_id, date: {"$gte": months_before}})
-    )
+#      daily_trades_df = pd.DataFrame(
+#          daily_trades_stats,
+#          index=map(lambda trade: trade[date].date(), daily_trades),
+#      )
 
-    if not daily_trades:
-        raise ValueError(daily_trades, f"stock id {stock_id} may not be crawled yet")
+#      # fill NaN to 0 and do cumsum
+#      cusum_trades_df = daily_trades_df.fillna(0).cumsum()
 
-    daily_trades_stats = []
+#      # filter columns according to last row value
+#      big_trader_filter = abs(cusum_trades_df[-1:].squeeze()) > big_trader_threshold
 
-    for daily_trade in daily_trades:
-        count_daily_traders = map(
-            lambda trade: {
-                **trade,
-                "quantitiesCount": trade[buyNum] - trade[sellNum],
-            },
-            daily_trade["data"],
-        )
-        big_traders = list(count_daily_traders)
+#      big_trades_df = cusum_trades_df.loc[:, big_trader_filter]
 
-        daily_trades_stats.append(
-            {trader[agentName]: trader["quantitiesCount"] for trader in big_traders}
-        )
+#      # sort columns according to last row value
+#      big_trades_df = big_trades_df.sort_values(
+#          big_trades_df.last_valid_index(), axis="columns", ascending=False
+#      )
 
-    daily_trades_df = pd.DataFrame(
-        daily_trades_stats,
-        index=map(lambda trade: trade[date].date(), daily_trades),
-    )
+#      #  print(big_trades_df.to_markdown())
 
-    # fill NaN to 0 and do cumsum
-    cusum_trades_df = daily_trades_df.fillna(0).cumsum()
-
-    # filter columns according to last row value
-    big_trader_filter = abs(cusum_trades_df[-1:].squeeze()) > big_trader_threshold
-
-    big_trades_df = cusum_trades_df.loc[:, big_trader_filter]
-
-    # sort columns according to last row value
-    big_trades_df = big_trades_df.sort_values(
-        big_trades_df.last_valid_index(), axis="columns", ascending=False
-    )
-
-    #  print(big_trades_df.to_markdown())
-
-    return big_trades_df
+#      return big_trades_df
 
 
-def get_price_dataframe(stock_id):
-    prices = list(
-        db.dailyPrices.find(
-            {"stockId": stock_id, "日期": {"$gte": months_before}},
-            {"_id": 0, "收盤價": 1, "日期": 1},
-        ).sort([("日期", ASCENDING)])
-    )
+#  def get_price_dataframe(stock_id):
+#      prices = list(
+#          db.dailyPrices.find(
+#              {"stockId": stock_id, "日期": {"$gte": months_before}},
+#              {"_id": 0, "收盤價": 1, "日期": 1},
+#          ).sort([("日期", ASCENDING)])
+#      )
 
-    prices_df = pd.DataFrame(
-        map(lambda e: {"price": e["收盤價"]}, prices),
-        index=map(lambda p: p["日期"].astimezone(TPE_TIMEZONE).date(), prices),
-    )
+#      prices_df = pd.DataFrame(
+#          map(lambda e: {"price": e["收盤價"]}, prices),
+#          index=map(lambda p: p["日期"].astimezone(TPE_TIMEZONE).date(), prices),
+#      )
 
-    #  print(prices_df.to_markdown())
+#      #  print(prices_df.to_markdown())
 
-    return prices_df
+#      return prices_df
 
 
-def main(stock_id, big_trader_threshold):
+def draw_chips_trend(stock):
+    big_trader_threshold = stock.get_custom_threshold()
 
-    trade_df = get_trade_dataframe(stock_id, big_trader_threshold)
-    prices_df = get_price_dataframe(stock_id)
+    months_before = datetime.now() - relativedelta(months=SIX_MONTH)
+
+    trade_df = stock.get_trade_df(months_before, big_trader_threshold)
+    prices_df = stock.get_price_dataframe(months_before)
     last_day = prices_df.index[-1]
 
     # from matplotlib import font_manager
@@ -138,7 +129,7 @@ def main(stock_id, big_trader_threshold):
     )
 
     ax.set_title(
-        f"{stock_id} (TH: {big_trader_threshold}), {last_day}",
+        f"{stock.id} (TH: {big_trader_threshold}), {last_day}",
         fontsize=30,
     )
     ax.set_xlabel("date", fontsize=10)
@@ -159,7 +150,7 @@ def main(stock_id, big_trader_threshold):
 
     plt.minorticks_on()
 
-    print(f"generate {stock_id} png")
+    print(f"generate {stock.id}_{last_day} png")
     #  plt.show()
     ax.figure.savefig(
         f"{Path().parent}/png/{stock_id}_{last_day}.png", bbox_inches="tight"
@@ -173,12 +164,11 @@ if __name__ == "__main__":
         existed_stocks = db["stocks"].find({"shouldSkip": False}, sort=[("stockId", 1)])
 
         for stock in existed_stocks:
-            stock_id = stock["stockId"]
-            big_trader_threshold = get_threshold(stock_id)
-            main(stock_id, big_trader_threshold)
+            stock = Stock(db, stock["stockId"])
+            draw_chips_trend(stock)
     else:
         while True:
-            big_trader_threshold = get_threshold(stock_id)
-            main(stock_id, big_trader_threshold)
+            stock = Stock(db, stock_id)
+            draw_chips_trend(stock)
 
             stock_id = get_stock_id()
