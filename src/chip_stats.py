@@ -153,7 +153,7 @@ def draw_chips_trend(stock):
     print(f"generate {stock.id}_{last_day} png")
     #  plt.show()
     ax.figure.savefig(
-        f"{Path().parent}/png/{stock_id}_{last_day}.png", bbox_inches="tight"
+        f"{Path().parent}/png/{stock.id}_{last_day}.png", bbox_inches="tight"
     )
 
 

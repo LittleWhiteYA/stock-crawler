@@ -3,95 +3,89 @@ import pydash
 from stock import Stock
 
 class Portfolio:
-    def __init__(self, db, total_count, init_money, first_quarter):
+    def __init__(self, db, init_money, first_quarter):
         self.db = db
         self.trade_history = []
-        self.current_quarter = first_quarter
+        self.first_quarter = first_quarter
         self.current_portfolio = []
-        self.total_count = total_count
-        self.init_money = init_money
+        self.current_cash = init_money
+        self.assets_history = []
 
-    #  # FIXME: this function should move to class Stock
-    #  def get_current_price(self, stock_id, quarter):
-    #      price = self.db.prices_quarter.find_one(
-    #          {
-    #              "stockId": stock_id,
-    #              "會計年季度": quarter,
-    #          },
-    #      )
+    def buy_stocks(self, buy_stock_ids, quarter):
+        if int(self.first_quarter) > int(quarter):
+            raise ValueError(f'first quarter: {self.first_quarter}, buy quarter: {quarter}')
 
-    #      if not price:
-    #          print(f'stock_id: {stock_id}, quarter: {quarter}, can not find price')
-    #          return -1
+        cash_use_in_each_stock = self.current_cash / len(buy_stock_ids)
 
-    #      return price["price"]
+        for stock_id in buy_stock_ids:
+            stock = Stock(self.db, stock_id)
+            price = stock.price_after_quarter_report(quarter, raise_error=True)
 
-    #  # FIXME: this function should move to class Stock
-    #  def get_end_quarter_price(self, stock_id, quarter):
-    #      from datetime import datetime, timedelta
-
-    #      year = int(quarter[:-1])
-    #      quarter_num = int(quarter[-1])
-
-    #      if quarter_num == 1:
-    #          after_date = datetime(year, 5, 15)
-    #      elif quarter_num == 2:
-    #          after_date = datetime(year, 8, 14)
-    #      elif quarter_num == 3:
-    #          after_date = datetime(year, 11, 14)
-    #      elif quarter_num == 4:
-    #          after_date = datetime(year + 1, 3, 31)
-
-    #      price = self.db.dailyPrices.find_one(
-    #          {
-    #              "stockId": stock_id,
-    #              "日期": { "$gt": after_date, "$lt": after_date + timedelta(days=10) },
-    #          },
-    #          sort=[("日期", 1)]
-    #      )
-
-    #      price = price["收盤價"]
-
-    #      if not price:
-    #          raise ValueError(f'missing price in stockId {stock_id}, quarter {quarter_num}')
-
-    #      return price
-
-    def buy(self, stock_id, quarter):
-        if int(self.current_quarter) > int(quarter):
-            raise ValueError(f'current quarter: {self.current_quarter}, buy quarter: {quarter}')
-
-        stock = Stock(self.db, stock_id)
-        price = stock.price_after_quarter_report(quarter, raise_error=True)
-
-        self.current_portfolio.append({
-            "stock_id": stock_id,
-            "buy_price": price,
-            "buy_unit": round(self.init_money / self.total_count / price, 4),
-            "buy_quarter": quarter,
-        })
-
-    def sell(self, stock_id, quarter):
-        if stock_id not in [stock["stock_id"] for stock in self.current_portfolio]:
-            raise ValueError(f"stock_id does not exist in porfolio")
-
-        stock = Stock(self.db, stock_id)
-        price = stock.price_after_quarter_report(quarter, raise_error=True)
-
-        if price != -1:
-            stock = next(stock for stock in self.current_portfolio if stock["stock_id"] == stock_id)
-
-            self.trade_history.append({
-                **stock,
-                "sell_price": price,
-                "sell_quarter": quarter,
-                "is_profit": stock["buy_price"] < price,
+            self.current_portfolio.append({
+                "stock_id": stock_id,
+                "buy_price": price,
+                "buy_unit": round(cash_use_in_each_stock / price, 4),
+                "buy_quarter": quarter,
             })
 
-        self.current_portfolio = pydash.remove(self.current_portfolio, lambda x: x["stock_id"] != stock_id)
+        self.current_cash = 0
 
-    @property
-    def history_profit(self):
+    def sell_all_stocks(self, quarter):
+        for port in self.current_portfolio:
+            stock = Stock(self.db, port["stock_id"])
+            price = stock.price_after_quarter_report(quarter)
+
+            stock_unit = port["buy_unit"]
+
+            if price != -1:
+                self.current_cash += stock_unit * price
+
+                self.trade_history.append({
+                    **port,
+                    "sell_price": price,
+                    "sell_quarter": quarter,
+                    "is_profit": port["buy_price"] < price,
+                })
+            else:
+                # FIXME: should get last price before stock disappeared
+                self.current_cash += stock_unit * port["buy_price"]
+
+                self.trade_history.append({
+                    **port,
+                    "sell_price": -1,
+                    "sell_quarter": quarter,
+                    "is_profit": None,
+                })
+
+        self.current_portfolio = []
+
+        self.assets_history.append({
+            "assets": round(self.current_cash, 4),
+            "quarter": quarter,
+        })
+
+
+    #  def sell_stocks(self, sell_stock_ids, quarter):
+    #      for stock_id in sell_stock_ids:
+    #          if stock_id not in [stock["stock_id"] for stock in self.current_portfolio]:
+    #              raise ValueError(f"stock_id {stock_id} does not exist in portfolio")
+
+    #          stock = Stock(self.db, stock_id)
+    #          price = stock.price_after_quarter_report(quarter, raise_error=True)
+
+    #          if price != -1:
+    #              stock = next(stock for stock in self.current_portfolio if stock["stock_id"] == stock_id)
+
+    #              self.trade_history.append({
+    #                  **stock,
+    #                  "sell_price": price,
+    #                  "sell_quarter": quarter,
+    #                  "is_profit": stock["buy_price"] < price,
+    #              })
+
+    #          self.current_portfolio = pydash.remove(self.current_portfolio, lambda x: x["stock_id"] != stock_id)
+
+    def get_history_profit(self, end_quarter):
         profit = 0
 
         for trade in self.trade_history:
@@ -99,22 +93,18 @@ class Portfolio:
 
         for portfolio in self.current_portfolio:
             stock = Stock(self.db, portfolio["stock_id"])
-            price = stock.price_after_quarter_report(self.current_quarter, raise_error=True)
+            price = stock.price_after_quarter_report(end_quarter, raise_error=True)
 
             profit += (portfolio["buy_price"] - price) * portfolio["buy_unit"]
 
         return round(profit, 4)
 
     @property
-    def return_on_investment(self):
-        return round(self.history_profit / self.init_money * 100, 4)
-
-    @property
     def win_rate(self):
         win_time = 0
 
         for trade in self.trade_history:
-            if trade["buy_price"] < trade["sell_price"]:
+            if trade["is_profit"] is True:
                 win_time += 1
 
         return round(win_time / len(self.trade_history), 4)

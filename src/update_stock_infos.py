@@ -5,6 +5,7 @@ from pymongo import MongoClient
 from dotenv import load_dotenv
 
 from stock_crawler import StockCrawler
+from stock import Stock
 
 load_dotenv()
 
@@ -179,27 +180,11 @@ def main():
                     upsert=True,
                 )
 
-                year = int(info["會計年季度"][:-1])
-                quarter_num = int(info["會計年季度"][-1])
+                stock = Stock(db, stock_id)
 
-                if quarter_num == 1:
-                    after_date = datetime(year, 5, 15)
-                elif quarter_num == 2:
-                    after_date = datetime(year, 8, 14)
-                elif quarter_num == 3:
-                    after_date = datetime(year, 11, 14)
-                elif quarter_num == 4:
-                    after_date = datetime(year + 1, 3, 31)
+                stock_price = stock.get_price_from_daily_collection(quarter)
 
-                price = db.dailyPrices.find_one(
-                    {
-                        "stockId": stock_id,
-                        "日期": { "$gt": after_date, "$lt": after_date + timedelta(days=10) },
-                    },
-                    sort=[("日期", 1)]
-                )
-
-                if price:
+                if stock_price:
                     db.prices_quarter.update_one(
                         {
                             "stockId": stock_id,
@@ -209,14 +194,14 @@ def main():
                             "$setOnInsert": {
                                 "stockId": stock_id,
                                 "會計年季度": quarter,
-                                "price": price["收盤價"],
+                                "price": stock_price["收盤價"],
                                 "createdAt": now,
                             }
                         },
                         upsert=True
                     )
                 else:
-                    print(f"missing price in stockId {stock_id}, year {year}, quarter {quarter_num}")
+                    print(f"missing price in stockId {stock_id}, quarter {quarter}")
 
             time.sleep(0.1)
 
