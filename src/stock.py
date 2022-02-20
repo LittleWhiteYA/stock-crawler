@@ -53,7 +53,7 @@ class Stock:
         self.db = db
         self.quarter_price_map = {}
 
-    def price_after_quarter_report(self, quarter):
+    def price_after_quarter_report(self, quarter, raise_error=False):
         if self.quarter_price_map[quarter]:
             return self.quarter_price_map[quarter]
 
@@ -64,10 +64,14 @@ class Stock:
             },
         )
 
-        self.quarter_price_map[quarter] = price_quarter["price"]
+        if not price_quarter:
+            if raise_error:
+                raise ValueError(f'missing price in stockId {self.id}, quarter {quarter}')
+            else:
+                print(f'stock_id: {self.id}, quarter: {quarter}, can not find price')
+                return -1
 
-        #  if not price:
-        #      raise ValueError(f'missing price in stockId {self.stock.id}, year {year}')
+        self.quarter_price_map[quarter] = price_quarter["price"]
 
         return self.quarter_price_map[quarter]
 

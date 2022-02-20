@@ -60,6 +60,7 @@ def main():
 
     now = datetime.now()
 
+    # chips ######################################################
     should_continue = input(f"should update stock '{stock_id_input}' chips (y/n) ?")
 
     if should_continue == "y":
@@ -98,6 +99,7 @@ def main():
                     upsert=True,
                 )
 
+    # price ######################################################
     should_continue = input(f"should update stock '{stock_id_input}' prices (y/n) ?")
 
     if should_continue == "y":
@@ -142,6 +144,7 @@ def main():
             #  if format_daily_prices:
             #      db[prices_collection].insert_many(format_daily_prices)
 
+    # reports ######################################################
     should_continue = input(f"should update stock '{stock_id_input}' year reports (y/n) ?")
 
     if should_continue == "y":
