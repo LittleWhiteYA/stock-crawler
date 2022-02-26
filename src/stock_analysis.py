@@ -15,22 +15,67 @@ mongo_client = MongoClient(MONGO_URL)
 db = mongo_client.get_default_database()
 
 
-def main():
+def generate_quarters(start_quarter, end_quarter):
+    start_year = int(start_quarter[:-1])
+    start_quarter_num = int(start_quarter[-1])
+
+    end_year = int(end_quarter[:-1])
+    end_quarter_num = int(end_quarter[-1])
+
     account_quarters = []
 
-    start_year = 2016
-    end_year = 2020
-    init_money = 3000
-    portfolio_count = 20
-    end_quarter = f"{end_year + 1}1"
+    end_quarter_in_first_year = 5
+    if start_year == end_year:
+        end_quarter_in_first_year = end_quarter_num
 
-    for year in range(start_year, end_year + 1):
+    for quarter in range(start_quarter_num, end_quarter_in_first_year):
+        account_quarters.append(f"{start_year}{quarter}")
+
+    for year in range(start_year + 1, end_year):
         for quarter in range(1, 5):
             account_quarters.append(f"{year}{quarter}")
 
+    if end_year > start_year:
+        for quarter in range(1, end_quarter_num):
+            account_quarters.append(f"{end_year}{quarter}")
+
+    return account_quarters
+
+
+def EBITDA_strategy(account_quarters, portfolio_count):
     stocks_quarter_rank = {}
 
-    market_portfolio = Portfolio(db, init_money, account_quarters[0])
+    for quarter in account_quarters:
+        print(f"quarter: {quarter}")
+        stock_infos = db.stock_infos_quarter.find({"會計年季度": quarter})
+
+        stocks_EBITDA_mod_EV = {}
+
+        for info in stock_infos:
+            stock_quarter = StockQuarter(db, info)
+
+            val = stock_quarter.EBITDA_mod_EV
+            if val > 0:
+                stocks_EBITDA_mod_EV[stock_quarter.stock.id] = val
+
+        stocks_quarter_rank[quarter] = heapq.nlargest(
+            portfolio_count, stocks_EBITDA_mod_EV, key=stocks_EBITDA_mod_EV.get
+        )
+
+    return stocks_quarter_rank
+
+
+def main():
+    account_quarters = []
+
+    start_quarter = "20161"
+    end_quarter = "20211"
+    init_money = 3000
+    portfolio_count = 20
+
+    account_quarters = generate_quarters(start_quarter, end_quarter)
+
+    market_portfolio = Portfolio(db, init_money, start_quarter)
 
     for curr_quarter in account_quarters:
         market_portfolio.sell_all_stocks(curr_quarter)
@@ -46,54 +91,13 @@ def main():
     print(f"win rate: {market_portfolio.win_rate * 100} %")
     print("=============================")
 
-    #  tmp = None
-
-    for quarter in account_quarters:
-        print(f"quarter: {quarter}")
-        stock_infos = db.stock_infos_quarter.find({"會計年季度": quarter})
-
-        stocks_EBITDA_mod_EV = {}
-
-        for info in stock_infos:
-            stock_quarter = StockQuarter(db, info)
-
-            val = stock_quarter.EBITDA_mod_EV
-            if val > 0:
-                stocks_EBITDA_mod_EV[stock_quarter.stock.id] = val
-                #  stocks_EBITDA_mod_EV[stock_quarter.stock.id] = stock
-
-        #  tmp = dict(sorted(stocks_EBITDA_mod_EV.items(), key=lambda x: x[1], reverse=True)[:30])
-        #  print(tmp)
-
-        stocks_quarter_rank[quarter] = heapq.nlargest(
-            portfolio_count, stocks_EBITDA_mod_EV, key=stocks_EBITDA_mod_EV.get
-        )
+    stocks_quarter_rank = EBITDA_strategy(account_quarters, portfolio_count)
 
     stocks_rank_df = pd.DataFrame(stocks_quarter_rank)
 
-    first_quarter = stocks_rank_df.columns[0]
+    portfolio = Portfolio(db, init_money, start_quarter)
 
-    portfolio = Portfolio(db, init_money, first_quarter)
-
-    ### LEGACY ###
-    #  first_quarter_stock_ids = stocks_rank_df[first_quarter]
-    #  portfolio.buy_stocks(first_quarter_stock_ids, first_quarter)
-
-    #  prev_quarter_stock_ids = first_quarter_stock_ids
-
-    #  for curr_quarter in stocks_rank_df.iloc[:, 1:]:
-    #      curr_stock_ids = stocks_rank_df[curr_quarter]
-
-    #      sell_stock_ids = set(prev_quarter_stock_ids.values) - set(curr_stock_ids.values)
-    #      buy_stock_ids = set(curr_stock_ids.values) - set(prev_quarter_stock_ids.values)
-
-    #      portfolio.sell_stocks(sell_stock_ids, curr_quarter)
-
-    #      portfolio.buy_stocks(buy_stock_ids, curr_quarter)
-
-    #      prev_quarter_stock_ids = curr_stock_ids
-
-    for curr_quarter in stocks_rank_df:
+    for curr_quarter in account_quarters:
         buy_stock_ids = stocks_rank_df[curr_quarter]
 
         portfolio.sell_all_stocks(curr_quarter)
