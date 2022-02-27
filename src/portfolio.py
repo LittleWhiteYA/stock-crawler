@@ -1,6 +1,6 @@
-import pydash
-
+#  import pydash
 from stock import Stock
+
 
 class Portfolio:
     def __init__(self, db, init_money, first_quarter):
@@ -13,7 +13,9 @@ class Portfolio:
 
     def buy_stocks(self, buy_stock_ids, quarter):
         if int(self.first_quarter) > int(quarter):
-            raise ValueError(f'first quarter: {self.first_quarter}, buy quarter: {quarter}')
+            raise ValueError(
+                f"first quarter: {self.first_quarter}, buy quarter: {quarter}"
+            )
 
         cash_use_in_each_stock = self.current_cash / len(buy_stock_ids)
 
@@ -21,12 +23,14 @@ class Portfolio:
             stock = Stock(self.db, stock_id)
             price = stock.price_after_quarter_report(quarter, raise_error=True)
 
-            self.current_portfolio.append({
-                "stock_id": stock_id,
-                "buy_price": price,
-                "buy_unit": round(cash_use_in_each_stock / price, 4),
-                "buy_quarter": quarter,
-            })
+            self.current_portfolio.append(
+                {
+                    "stock_id": stock_id,
+                    "buy_price": price,
+                    "buy_unit": round(cash_use_in_each_stock / price, 4),
+                    "buy_quarter": quarter,
+                }
+            )
 
         self.current_cash = 0
 
@@ -40,30 +44,35 @@ class Portfolio:
             if price != -1:
                 self.current_cash += stock_unit * price
 
-                self.trade_history.append({
-                    **port,
-                    "sell_price": price,
-                    "sell_quarter": quarter,
-                    "is_profit": port["buy_price"] < price,
-                })
+                self.trade_history.append(
+                    {
+                        **port,
+                        "sell_price": price,
+                        "sell_quarter": quarter,
+                        "is_profit": port["buy_price"] < price,
+                    }
+                )
             else:
                 # FIXME: should get last price before stock disappeared
                 self.current_cash += stock_unit * port["buy_price"]
 
-                self.trade_history.append({
-                    **port,
-                    "sell_price": -1,
-                    "sell_quarter": quarter,
-                    "is_profit": None,
-                })
+                self.trade_history.append(
+                    {
+                        **port,
+                        "sell_price": -1,
+                        "sell_quarter": quarter,
+                        "is_profit": None,
+                    }
+                )
 
         self.current_portfolio = []
 
-        self.assets_history.append({
-            "assets": round(self.current_cash, 4),
-            "quarter": quarter,
-        })
-
+        self.assets_history.append(
+            {
+                "assets": round(self.current_cash, 4),
+                "quarter": quarter,
+            }
+        )
 
     #  def sell_stocks(self, sell_stock_ids, quarter):
     #      for stock_id in sell_stock_ids:

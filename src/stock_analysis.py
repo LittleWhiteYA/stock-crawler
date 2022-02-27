@@ -47,7 +47,14 @@ def EBITDA_strategy(account_quarters, portfolio_count):
 
     for quarter in account_quarters:
         print(f"quarter: {quarter}")
-        stock_infos = db.stock_infos_quarter.find({"會計年季度": quarter})
+        stock_infos = db.stock_infos_quarter.find(
+            {
+                "會計年季度": quarter,
+                "普通股股本": {"$gt": 0},
+                "毛利": {"$ne": 0},
+                "營業利益": {"$ne": 0},
+            }
+        )
 
         stocks_EBITDA_mod_EV = {}
 

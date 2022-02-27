@@ -263,4 +263,3 @@ class StockCrawler:
             )
 
         return infos
-

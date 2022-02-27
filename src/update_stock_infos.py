@@ -14,6 +14,7 @@ UNTIL_DATE = os.environ.get("UNTIL_DATE")
 
 MONGO_URL = os.environ.get("MONGO_URL")
 
+
 def get_stock_id():
     stock_id = input("input stock id or 'all': ")
 
@@ -126,7 +127,9 @@ def main():
             print(f"since_date: {tmp_since_date}")
             print(f"until_date: {until_date}")
 
-            format_daily_prices = stock_crawler.get_daily_prices(tmp_since_date, until_date)
+            format_daily_prices = stock_crawler.get_daily_prices(
+                tmp_since_date, until_date
+            )
 
             for price in format_daily_prices:
                 price["createdAt"] = now
@@ -146,13 +149,15 @@ def main():
             #      db[prices_collection].insert_many(format_daily_prices)
 
     # reports ######################################################
-    should_continue = input(f"should update stock '{stock_id_input}' year reports (y/n) ?")
+    should_continue = input(
+        f"should update stock '{stock_id_input}' year reports (y/n) ?"
+    )
 
     if should_continue == "y":
         if stock_id_input == "all":
             stocks = list(db.stocks.find().sort([("stockId", 1)]))
         else:
-            stocks = [{ "stockId": stock_id_input }]
+            stocks = [{"stockId": stock_id_input}]
 
         for stock in stocks:
             stock_id = stock["stockId"]
@@ -198,13 +203,12 @@ def main():
                                 "createdAt": now,
                             }
                         },
-                        upsert=True
+                        upsert=True,
                     )
                 else:
                     print(f"missing price in stockId {stock_id}, quarter {quarter}")
 
             time.sleep(0.1)
-
 
     mongo_client.close()
 
