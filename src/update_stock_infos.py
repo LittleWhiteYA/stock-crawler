@@ -159,13 +159,16 @@ def main():
         else:
             stocks = [{"stockId": stock_id_input}]
 
+        start_year = 2012
+        end_year = 2021
+
         for stock in stocks:
             stock_id = stock["stockId"]
 
             stock_crawler = StockCrawler(stock_id, date_column)
 
             print(f"stock id: {stock_id}")
-            stock_infos = stock_crawler.get_year_report(2012, 2021)
+            stock_infos = stock_crawler.get_year_report(start_year, end_year)
 
             for info in stock_infos:
                 stock_id = info["stockId"]
@@ -174,6 +177,23 @@ def main():
                 print(f"stockId: {stock_id}, quarter year: {quarter}")
 
                 info["createdAt"] = now
+
+                #  new_keys = [
+                #      "每股淨值",
+                #      "單季EPS",
+                #      "ROE",
+                #      "ROA",
+                #      "單季營收季增率",
+                #      "毛利率",
+                #      "單季毛利季增率",
+                #      "營業利益率",
+                #      "單季營業利益季增率",
+                #      "稅前淨利率",
+                #      "稅後淨利率",
+                #      "單季稅後淨利季增率",
+                #      "單季EPS季增率",
+                #  ]
+
                 db.stock_infos_quarter.update_one(
                     {
                         "stockId": stock_id,
@@ -181,6 +201,7 @@ def main():
                     },
                     {
                         "$setOnInsert": info,
+                        #  "$set": {new_key: info[new_key] for new_key in new_keys},
                     },
                     upsert=True,
                 )

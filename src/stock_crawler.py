@@ -158,7 +158,7 @@ class StockCrawler:
         return self.access_token
 
     def get_year_report(self, since_year, until_year):
-        pick_column = [
+        pick_int_column = [
             # 損益表
             "Revenue",
             "GrossProfit",
@@ -203,6 +203,25 @@ class StockCrawler:
             "NetCashFlow",
         ]
 
+        pick_float_column = [
+            # 某些算好的數值
+            "DebtRatio",
+            "NAV",
+            "EPS",
+            "ROE",
+            "ROA",
+            "RevenueQOQ",
+            "GrossMargin",
+            "GrossProfitQOQ",
+            "OperatingMargin",
+            "OperatingIncomeQOQ",
+            "ProfitBeforeTaxMargin",
+            "GrossProfitQOQ",
+            "NetIncomeMargin",
+            "NetIncomeQOQ",
+            "EPSQOQ",
+        ]
+
         url = f"https://statementdog.com/api/v2/fundamentals/{self.stock_id}/{since_year}/{until_year}/cf"
 
         res = requests.get(url)
@@ -224,28 +243,33 @@ class StockCrawler:
 
             info = {}
 
-            for column in pick_column:
+            for int_column in pick_int_column:
                 try:
-                    val = stock_quarter[column]["data"][idx][1]
+                    val = stock_quarter[int_column]["data"][idx][1]
                     val = int(val) if val != "無" else 0
 
-                    info[stock_quarter[column]["label"]] = val
+                    info[stock_quarter[int_column]["label"]] = val
                 except ValueError as e:
                     print(
                         f"stock_id: {self.stock_id}, calendar_quarter: {calendar_quarter_date} raise Error"
                     )
-                    print(f"column: {column}, ", e)
+                    print(f"int column: {int_column}, ", e)
 
-            try:
-                val = stock_quarter["DebtRatio"]["data"][idx][1]
-                val = float(val) if val != "無" else 0
+            for float_column in pick_float_column:
+                try:
+                    val = stock_quarter[float_column]["data"][idx][1]
+                    val = (
+                        float(val)
+                        if val != "無" and val != "負轉正" and val != "負" and val != "前期為零"
+                        else 0
+                    )
 
-                info[stock_quarter["DebtRatio"]["label"]] = val
-            except ValueError as e:
-                print(
-                    f"stock_id: {self.stock_id}, calendar_quarter: {calendar_quarter_date} raise Error"
-                )
-                print(f"column: {column}, ", e)
+                    info[stock_quarter[float_column]["label"]] = val
+                except ValueError as e:
+                    print(
+                        f"stock_id: {self.stock_id}, calendar_quarter: {calendar_quarter_date} raise Error"
+                    )
+                    print(f"float column: {float_column}, ", e)
 
             infos.append(
                 {

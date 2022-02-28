@@ -18,6 +18,7 @@ matplotlib = "^3.4.1"
 tabulate = "^0.8.9"
 black = "^21.12b0"
 pydash = "^5.1.0"
+nb-black = "^1.0.7"
 
 [tool.poetry.dev-dependencies]
 

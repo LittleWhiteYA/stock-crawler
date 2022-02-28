@@ -473,6 +473,17 @@ optional = false
 python-versions = "*"
 
 [[package]]
+name = "nb-black"
+version = "1.0.7"
+description = "A simple extension for Jupyter Notebook and Jupyter Lab to beautify Python code automatically using Black."
+category = "main"
+optional = false
+python-versions = "*"
+
+[package.dependencies]
+ipython = "*"
+
+[[package]]
 name = "nbclient"
 version = "0.5.3"
 description = "A client library for executing notebooks. Formerly nbconvert's ExecutePreprocessor."
@@ -1043,7 +1054,7 @@ notebook = ">=4.4.1"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8"
-content-hash = "bec8e288d842451321c71419a56bac8b9912d614ab226ead04499060a4a8066a"
+content-hash = "e06b61bd5aacbfa6b1f7fb5057bc25bd08f7311f6867f808455e31d1de52cc84"
 
 [metadata.files]
 appnope = [
@@ -1368,6 +1379,9 @@ mistune = [
 mypy-extensions = [
     {file = "mypy_extensions-0.4.3-py2.py3-none-any.whl", hash = "sha256:090fedd75945a69ae91ce1303b5824f428daf5a028d2f6ab8a299250a846f15d"},
     {file = "mypy_extensions-0.4.3.tar.gz", hash = "sha256:2d82818f5bb3e369420cb3c4060a7970edba416647068eb4c5343488a6c604a8"},
+]
+nb-black = [
+    {file = "nb_black-1.0.7.tar.gz", hash = "sha256:1ca52e3a46675f6a0a6d79ac73a1f8f951bef60f919eced56173e76ab1b6d62b"},
 ]
 nbclient = [
     {file = "nbclient-0.5.3-py3-none-any.whl", hash = "sha256:e79437364a2376892b3f46bedbf9b444e5396cfb1bc366a472c37b48e9551500"},
