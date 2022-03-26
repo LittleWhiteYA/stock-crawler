@@ -100,7 +100,7 @@ class Stock:
 
         return self.quarter_price_map[quarter]
 
-    def get_price_from_daily_collection(self, quarter):
+    def get_price_from_daily_collection(self, quarter, days_delay=None):
         year = int(quarter[:-1])
         quarter_num = int(quarter[-1])
 
@@ -112,6 +112,9 @@ class Stock:
             after_date = datetime(year, 11, 14)
         elif quarter_num == 4:
             after_date = datetime(year + 1, 3, 31)
+
+        if days_delay:
+            after_date += timedelta(days=days_delay)
 
         price = self.db.dailyPrices.find_one(
             {

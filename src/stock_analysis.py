@@ -42,7 +42,8 @@ def generate_quarters(start_quarter, end_quarter):
     return account_quarters
 
 
-def EBITDA_strategy(account_quarters, portfolio_count):
+def EBITDA_strategy(portfolio, account_quarters, portfolio_count, end_quarter):
+    print("===== EBITDA strategy =====")
     stocks_quarter_rank = {}
 
     for quarter in account_quarters:
@@ -50,12 +51,12 @@ def EBITDA_strategy(account_quarters, portfolio_count):
         stock_infos = db.stock_infos_quarter.find(
             {
                 "會計年季度": quarter,
+                "isTop200Company": {"$ne": True},
                 "普通股股本": {"$gt": 0},
                 "毛利": {"$ne": 0},
                 "營業利益": {"$ne": 0},
             }
         )
-
         stocks_EBITDA_mod_EV = {}
 
         for info in stock_infos:
@@ -69,40 +70,7 @@ def EBITDA_strategy(account_quarters, portfolio_count):
             portfolio_count, stocks_EBITDA_mod_EV, key=stocks_EBITDA_mod_EV.get
         )
 
-    return stocks_quarter_rank
-
-
-def main():
-    account_quarters = []
-
-    start_quarter = "20161"
-    end_quarter = "20211"
-    init_money = 3000
-    portfolio_count = 20
-
-    account_quarters = generate_quarters(start_quarter, end_quarter)
-
-    market_portfolio = Portfolio(db, init_money, start_quarter)
-
-    for curr_quarter in account_quarters:
-        market_portfolio.sell_all_stocks(curr_quarter)
-
-        market_portfolio.buy_stocks(["0050"], curr_quarter)
-
-    market_portfolio.sell_all_stocks(end_quarter)
-
-    print("=============================")
-    print("0050 portfolio")
-    print(market_portfolio.assets_history)
-    print(market_portfolio.get_history_profit(end_quarter))
-    print(f"win rate: {market_portfolio.win_rate * 100} %")
-    print("=============================")
-
-    stocks_quarter_rank = EBITDA_strategy(account_quarters, portfolio_count)
-
     stocks_rank_df = pd.DataFrame(stocks_quarter_rank)
-
-    portfolio = Portfolio(db, init_money, start_quarter)
 
     for curr_quarter in account_quarters:
         buy_stock_ids = stocks_rank_df[curr_quarter]
@@ -119,6 +87,50 @@ def main():
     print(portfolio.get_history_profit(end_quarter))
     print(f"win rate: {portfolio.win_rate * 100} %")
     print("=============================")
+
+
+#  def grow_rate_strategy(account_quarters, portfolio_count):
+#      print("===== grow rate strategy =====")
+
+#      for quarter in account_quarters:
+#          print(f"quarter: {quarter}")
+#          stock_infos = db.stock_infos_quarter.find({"會計年季度": quarter})
+
+#          for info in stock_infos:
+#              stock_quarter = StockQuarter(db, info)
+
+#      return stocks_quarter_rank
+
+
+def main():
+    account_quarters = []
+
+    start_quarter = "20161"
+    end_quarter = "20211"
+    init_money = 3000
+    portfolio_count = 20
+
+    account_quarters = generate_quarters(start_quarter, end_quarter)
+
+    market_portfolio = Portfolio(db, init_money)
+
+    for curr_quarter in account_quarters:
+        market_portfolio.sell_all_stocks(curr_quarter)
+
+        market_portfolio.buy_stocks(["0050"], curr_quarter)
+
+    market_portfolio.sell_all_stocks(end_quarter)
+
+    print("=============================")
+    print("0050 portfolio")
+    print(market_portfolio.assets_history)
+    print(market_portfolio.get_history_profit(end_quarter))
+    print(f"win rate: {market_portfolio.win_rate * 100} %")
+    print("=============================")
+
+    portfolio = Portfolio(db, init_money)
+
+    EBITDA_strategy(portfolio, account_quarters, portfolio_count, end_quarter)
 
 
 if __name__ == "__main__":
