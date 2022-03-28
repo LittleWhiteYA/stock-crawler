@@ -1,5 +1,6 @@
 import os
 import time
+import traceback
 from datetime import datetime, timedelta
 from pymongo import MongoClient
 from dotenv import load_dotenv
@@ -71,35 +72,38 @@ def main():
 
         for stock_crawler in stock_crawlers:
             stock_id = stock_crawler.stock_id
-
-            latest_data = db[chips_collection].find_one(
-                {"stockId": stock_id}, sort=[(date_column, -1)]
-            )
-
-            if since_date:
-                tmp_since_date = since_date
-            else:
-                tmp_since_date = latest_data[date_column] + timedelta(days=1)
-
             print(f"stock id: {stock_id}")
-            print(f"since_date: {tmp_since_date}")
-            print(f"until_date: {until_date}")
 
-            chips = stock_crawler.get_chips(tmp_since_date, until_date)
-
-            for chip in chips:
-                chip["createdAt"] = now
-
-                db[chips_collection].update_one(
-                    {
-                        "stockId": chip["stockId"],
-                        date_column: chip[date_column],
-                    },
-                    {
-                        "$setOnInsert": chip,
-                    },
-                    upsert=True,
+            try:
+                latest_data = db[chips_collection].find_one(
+                    {"stockId": stock_id}, sort=[(date_column, -1)]
                 )
+
+                if since_date:
+                    tmp_since_date = since_date
+                else:
+                    tmp_since_date = latest_data[date_column] + timedelta(days=1)
+
+                print(f"since_date: {tmp_since_date}")
+                print(f"until_date: {until_date}")
+
+                chips = stock_crawler.get_chips(tmp_since_date, until_date)
+
+                for chip in chips:
+                    chip["createdAt"] = now
+
+                    db[chips_collection].update_one(
+                        {
+                            "stockId": chip["stockId"],
+                            date_column: chip[date_column],
+                        },
+                        {
+                            "$setOnInsert": chip,
+                        },
+                        upsert=True,
+                    )
+            except Exception:
+                traceback.print_exc()
 
     # price ######################################################
     should_continue = input(f"should update stock '{stock_id_input}' prices (y/n) ?")
@@ -110,6 +114,7 @@ def main():
 
         for stock_crawler in stock_crawlers:
             stock_id = stock_crawler.stock_id
+            print(f"stock id: {stock_id}")
 
             if int(stock_id) <= 1100:
                 continue
@@ -123,7 +128,6 @@ def main():
             else:
                 tmp_since_date = latest_data[date_column]
 
-            print(f"stock id: {stock_id}")
             print(f"since_date: {tmp_since_date}")
             print(f"until_date: {until_date}")
 
@@ -159,6 +163,7 @@ def main():
         else:
             stocks = [{"stockId": stock_id_input}]
 
+        # FIXME: should not always fetch start from 2012 and end at 2021
         start_year = 2012
         end_year = 2021
 
