@@ -10,10 +10,15 @@ from stock import Stock
 
 load_dotenv()
 
-SINCE_DATE = os.environ.get("SINCE_DATE")
-UNTIL_DATE = os.environ.get("UNTIL_DATE")
-
 MONGO_URL = os.environ.get("MONGO_URL")
+
+mongo_client = MongoClient(MONGO_URL)
+db = mongo_client.get_default_database()
+
+date_column = "日期"
+stocks_collection = "stocks"
+chips_collection = "chips"
+prices_collection = "dailyPrices"
 
 
 def get_stock_id():
@@ -28,16 +33,76 @@ def get_stock_id():
     return stock_id
 
 
+def crawl_new_stock():
+    now = datetime.now()
+
+    new_stock_id = input(f"new stock id: ")
+    new_until_date = datetime.now()
+
+    if not new_stock_id:
+        raise ValueError(new_stock_id, "stock_id is missing")
+
+    print(f"insert new stock into {stocks_collection} collection")
+    db[stocks_collection].update_one(
+        {
+            "stockId": "1342",
+        },
+        {
+            "stockId": "1342",
+            "shouldSkip": False,
+        },
+        upsert=True,
+    )
+
+    new_since_date = input(f"new_since_date for chips (e.g. 2021-01-01): ")
+    new_since_date = datetime.strptime(new_since_date, "%Y-%m-%d")
+
+    print(f"new_stock_id: {new_stock_id}")
+    print(f"new_since_date of chips: {new_since_date}")
+    print(f"new_until_date of chips: {new_until_date}")
+    print("get new stock chips")
+    stock_crawler = StockCrawler(new_stock_id, date_column)
+    new_chips = stock_crawler.get_chips(new_since_date, new_until_date)
+
+    for chip in new_chips:
+        chip["createdAt"] = now
+
+    if new_chips:
+        db[chips_collection].insert_many(new_chips)
+
+    new_since_date = input(f"new_since_date for prices (e.g. 2012-01-01): ")
+    new_since_date = datetime.strptime(new_since_date, "%Y-%m-%d")
+    print(f"new_since_date of prices: {new_since_date}")
+    print(f"new_until_date of prices: {new_until_date}")
+    print("get new stock prices")
+    stock_crawler = StockCrawler(new_stock_id, date_column)
+    new_format_daily_prices = stock_crawler.get_daily_prices(
+        new_since_date, new_until_date
+    )
+
+    for price in new_format_daily_prices:
+        price["createdAt"] = now
+
+    if new_format_daily_prices:
+        db[prices_collection].insert_many(new_format_daily_prices)
+
+
 def main():
-    mongo_client = MongoClient(MONGO_URL)
-    db = mongo_client.get_default_database()
+
+    # new stock ######################################################
+    is_new_stock = input(f"should crawl new stock (y/n) ?")
+
+    if is_new_stock == "y":
+        crawl_new_stock()
 
     stock_id_input = get_stock_id()
-    date_column = "日期"
+    now = datetime.now()
 
     if stock_id_input == "all":
-        existed_stocks = db["stocks"].find({"shouldSkip": False}, sort=[("stockId", 1)])
-        #  existed_stocks = db["stocks"].find({}, sort=[("stockId", 1)])
+        existed_stocks = db[stocks_collection].find(
+            {"shouldSkip": False}, sort=[("stockId", 1)]
+        )
+        #  existed_stocks = db[stocks_collection].find({}, sort=[("stockId", 1)])
         existed_stock_ids = list(map(lambda stock: stock["stockId"], existed_stocks))
     else:
         existed_stock_ids = [stock_id_input]
@@ -49,26 +114,26 @@ def main():
 
         stock_crawlers.append(stock_crawler)
 
-    since_date = None
-    if SINCE_DATE:
-        since_date = datetime.strptime(SINCE_DATE, "%Y-%m-%d")
+    since_date = input(f"since_date (e.g. 2021-01-01): ")
+    if since_date:
+        since_date = datetime.strptime(since_date, "%Y-%m-%d")
 
-    if UNTIL_DATE:
-        until_date = min(datetime.strptime(UNTIL_DATE, "%Y-%m-%d"), datetime.now())
+    until_date = input(f"until_date (e.g. 2021-01-01): ")
+    if until_date:
+        until_date = min(datetime.strptime(until_date, "%Y-%m-%d"), datetime.now())
     else:
         until_date = datetime.now()
 
-    print(f"env since_date: {since_date}")
+    print(
+        f"env since_date: {since_date}, if None will get oldest depends on each stock history"
+    )
     print(f"env until_date: {until_date}")
-
-    now = datetime.now()
 
     # chips ######################################################
     should_continue = input(f"should update stock '{stock_id_input}' chips (y/n) ?")
 
     if should_continue == "y":
         print("update stock chips")
-        chips_collection = "chips"
 
         for stock_crawler in stock_crawlers:
             stock_id = stock_crawler.stock_id
@@ -109,7 +174,6 @@ def main():
     should_continue = input(f"should update stock '{stock_id_input}' prices (y/n) ?")
 
     if should_continue == "y":
-        prices_collection = "dailyPrices"
         print(f"update stock daily prices in collection {prices_collection}")
 
         for stock_crawler in stock_crawlers:
